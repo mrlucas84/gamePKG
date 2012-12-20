@@ -1,6 +1,3 @@
-# Makefile.template
-# vim: ts=8 noexpandtab
-
 PROJECT_VERSION		:= 01.00
 SRC_EXTENSIONS		:= c cpp cc
 
@@ -33,16 +30,7 @@ gamePKG: $(PPU_TARGET)
 	@$(PPU_STRIP) -s $(PPU_TARGET) -o $(OBJS_DIR)/$(PPU_TARGET)
 	@$(MAKE_FSELF) $(OBJS_DIR)/$(PPU_TARGET) EBOOT.BIN
 	@$(MAKE_FSELF_NPDRM) $(OBJS_DIR)/$(PPU_TARGET) release/PS3_GAME/USRDIR/EBOOT.BIN
-#	@$(MAKE_SELF_NPDRM) $(OBJS_DIR)/$(PPU_TARGET) release/PS3_GAME/USRDIR/EBOOT.BIN
-#	cp EBOOT.BIN release/PS3_GAME/USRDIR/RELOAD.SELF
-#	@$(MAKE_PACKAGE_NPDRM) release/package.conf release/PS3_GAME/
-#	mv *.pkg release/gamePKG.pkg	
 
 pkg: $(PPU_TARGET)
 	@$(PSN_PKG_NPDRM) release/package.conf release/PS3_GAME/ > nul
 	mv *.pkg release/gamePKG.pkg	
-
-# Code::Blocks support
-Debug: all
-Release: Debug package
-
