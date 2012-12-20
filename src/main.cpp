@@ -85,7 +85,7 @@ void CapApp::dbgFontInit(void)
 
 	if (ret != CELL_OK) 
 	{
-		cellMsgDialogOpen(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontInit() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontInit() failed", callbackfunction, NULL, NULL);
 		return;
 	}
 
@@ -105,7 +105,7 @@ void CapApp::dbgFontInit(void)
 
 	if (mDbgFontID[0] < 0) 
 	{
-		cellMsgDialogOpen(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
 		return;
 	}
 
@@ -120,7 +120,7 @@ void CapApp::dbgFontInit(void)
 
 	if (mDbgFontID[1] < 0) 
 	{
-		cellMsgDialogOpen(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
 		return;
 	}
 }
@@ -321,9 +321,8 @@ void CapApp::Input()
 		if(gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued) 
 		{
 			// already queued...
-			::cellMsgDialogOpen(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "Sorry, you already queued this PKG.", callbackfunction, NULL, NULL);
+			::cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "Sorry, you already queued this PKG.", callbackfunction, NULL, NULL);
 		} else {
-			gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued = true;
 			gamePKG->QueuePKG();	
 		}
 	}
@@ -339,22 +338,7 @@ bool CapApp::onUpdate()
 	mFrame++;
 
 	Input();
-
 	dbgFontPut();
-
-	// COPY SUCCESS
-	if(gamePKG->nCopyStatus == 3) 
-	{
-		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully added \"%s\" to queue.", gamePKG->szFileIn);
-
-		::cellMsgDialogOpen2(
-			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
-			szMsg, 
-			callbackfunction, NULL, NULL);
-
-		gamePKG->nCopyStatus = 0;
-	}
 
 	// COPY STARTED
 	if(gamePKG->nCopyStatus == 1)
@@ -373,19 +357,28 @@ bool CapApp::onUpdate()
 		gamePKG->nCopyStatus = 0; // avoid loop
 	}
 
-	// COPY DONE [OK]
+	// COPY [OK]
 	if(gamePKG->nCopyStatus == 2) 
 	{
-		cellMsgDialogClose(500.0f);
-		
-		sys_timer_sleep(1);
+		cellMsgDialogAbort();
 
-		gamePKG->nCopyStatus = 3;
+		char szMsg[256] = "";
+		sprintf(szMsg, "Successfully added \"%s\" to queue.", gamePKG->szFileIn);
+
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
+			szMsg, 
+			callbackfunction, NULL, NULL);
+
+		gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued = true;
+		gamePKG->nCopyStatus = 0;
 	}
 
-	// COPY ERROR MSG
-	if(gamePKG->nCopyStatus == 11)
+	// COPY [ERROR]
+	if(gamePKG->nCopyStatus == 10) 
 	{
+		cellMsgDialogAbort();
+
 		char szMsg[256] = "";
 		sprintf(szMsg, "Error while processing \"%s\".", gamePKG->szFileIn);
 
@@ -394,17 +387,10 @@ bool CapApp::onUpdate()
 			szMsg, 
 			callbackfunction, NULL, NULL);
 
+		gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued = false;
+		gamePKG->DeletePDBFiles(gamePKG->pkglst[gamePKG->nSelectedPKG]->nPKGID);
+		gamePKG->RemovePKGDir(gamePKG->pkglst[gamePKG->nSelectedPKG]->nPKGID);		
 		gamePKG->nCopyStatus = 0;
-	}
-
-	// COPY DONE [ERROR]
-	if(gamePKG->nCopyStatus == 10) 
-	{
-		cellMsgDialogClose(500.0f);
-
-		sys_timer_sleep(1);
-
-		gamePKG->nCopyStatus = 11;
 	}
 
 	return FWGLApplication::onUpdate();
@@ -416,7 +402,6 @@ void CapApp::onRender()
     FWGLApplication::onRender();
 
 	dbgFontDraw();
-
 }
 
 void CapApp::onShutdown() 

@@ -61,7 +61,8 @@ public:
 
 	int QueuePKG();
 	int CreatePDBFiles();
-	int DeletePDBFiles();
+	int DeletePDBFiles(int nId);
+	int RemovePKGDir(int nId);
 	void RefreshPKGList();
 	uint64_t GetPKGSize(char* szFilePath);
 	int ParsePKGList(const char* szDevice);

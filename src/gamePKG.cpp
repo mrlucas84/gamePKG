@@ -179,7 +179,7 @@ int c_gamePKG::ParsePKGList(const char* szDevice)
 				msg = "CELL_FS_EFAULT";
 				break;
 		}		
-		//::cellMsgDialogOpen(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, msg, callbackfunction, NULL, NULL);		
+		//::cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, msg, callbackfunction, NULL, NULL);		
 		return 0;
 	}
 
@@ -220,47 +220,52 @@ void c_gamePKG::RefreshPKGList()
 	ParsePKGList("/dev_hdd0/package");
 }
 
-//int c_gamePKG::DeletePDBFiles()
-//{
-//	bDeleting = true;
-//
-//	// PKG
-//	int nFNLen = strlen(pkglst[nSelectedPKG]->title) + 1; // filename length
-//
-//	char* pszFN = NULL;
-//	pszFN = (char*)malloc(sizeof(char) * nFNLen);
-//	memcpy(pszFN, pkglst[nSelectedPKG]->title, nFNLen);
-//
-//	char szPKGDir[256] = "";
-//	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
-//
-//	// delete files
-//	char szFile[4][256];
-//
-//	char szPDB[4][256] = {
-//		"d0.pdb", 
-//		"d1.pdb", 
-//		"f0.pdb", 
-//		"ICON_FILE"
-//	};
-//
-//	for(int x = 0; x < 4; x++) 
-//	{
-//		sprintf(szFile[x], "%s/%s", szPKGDir, szPDB[x]);
-//		FILE* fp = fopen(szFile[x], "r");
-//		if(fp){
-//			fclose(fp);
-//			fp = NULL;
-//			cellFsUnlink(szFile[x]);
-//		}
-//	}
-//
-//	pkglst[nSelectedPKG]->bQueued = false;
-//
-//	bDeleting = false;
-//
-//	return 1;
-//}
+int c_gamePKG::RemovePKGDir(int nId)
+{
+	char szPKGDir[256] = "";
+	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", nId);
+	
+	CellFsErrno ret = cellFsRmdir(szPKGDir);
+	
+	if(ret != CELL_FS_SUCCEEDED) {
+		// couldn't delete the directory...
+		return 0;
+	}
+	return 1;
+}
+
+int c_gamePKG::DeletePDBFiles(int nId)
+{
+	bDeleting = true;
+
+	char szPKGDir[256] = "";
+	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", nId);
+
+	// delete files
+	char szFile[4][256] = {"","","",""};
+	char szPDB[4][256] = {"d0.pdb","d1.pdb","f0.pdb","ICON_FILE"};
+
+	for(int x = 0; x < 4; x++) 
+	{
+		sprintf(szFile[x], "%s/%s", szPKGDir, szPDB[x]);
+
+		FILE* fp = fopen(szFile[x], "r");
+
+		if(fp){
+			fclose(fp);
+			fp = NULL;
+			CellFsErrno ret = cellFsUnlink(szFile[x]);
+			if(ret != CELL_FS_SUCCEEDED)
+			{
+				// error deleting file
+				return 0;
+			}
+		}
+	}
+
+	bDeleting = false;
+	return 1;
+}
 
 uint64_t c_gamePKG::GetPKGSize(char* szFilePath)
 {
@@ -325,18 +330,14 @@ int c_gamePKG::CreatePDBFiles()
 	bytes_from_hex_string(sizeData, pkglst[nSelectedPKG]->szSize);
 
 	// PKG size 1st entry
-	d0pdb_ttxt_hdr[0x70] = sizeData[0];
-	d0pdb_ttxt_hdr[0x71] = sizeData[1];
-	d0pdb_ttxt_hdr[0x72] = sizeData[2];
-	d0pdb_ttxt_hdr[0x73] = sizeData[3];
-	d0pdb_ttxt_hdr[0x74] = sizeData[4];
+	for(int x = 0; x < 5; x++) {
+		d0pdb_ttxt_hdr[0x70 + x] = sizeData[x];
+	}
 
 	// PKG size 2nd entry
-	d0pdb_ttxt_hdr[0x84] = sizeData[0];
-	d0pdb_ttxt_hdr[0x85] = sizeData[1];
-	d0pdb_ttxt_hdr[0x86] = sizeData[2];
-	d0pdb_ttxt_hdr[0x87] = sizeData[3];
-	d0pdb_ttxt_hdr[0x88] = sizeData[4];
+	for(int x = 0; x < 5; x++) {
+		d0pdb_ttxt_hdr[0x84 + x] = sizeData[x];
+	}
 
 	// TITLE string length entry
 	d0pdb_ttxt_hdr[0x94]	= nFNLen + 0x0D + 1;
@@ -459,13 +460,6 @@ void thread_FileCopy(uint64_t arg)
 {	
 	gamePKG->nCopyStatus = 1;
 
-	int running = 0;
-	sys_ppu_thread_t id;
-	sys_ppu_thread_get_id(&id);	
-	
-	sys_ppu_thread_stack_t stackinfo;
-	sys_ppu_thread_get_stack_information(&stackinfo);
-
 	FILE *filer, *filew;
 	int numr, numw;
 	char buffer[2352]; // 1 sector as in CD-ROM
@@ -475,56 +469,46 @@ void thread_FileCopy(uint64_t arg)
 
 	if(filer != NULL && filew != NULL)
 	{
+		bool bCopyError = false;
+
 		while(feof(filer) == 0)
 		{
-			if(gamePKG->bCancelCopy) 
-			{
-				//fclose(filer);
-				//fclose(filew);
-				//cellFsUnlink(szFileOut); // delete file
-				//DeletePDBFiles();
-				//while(bDeleting)
-				//{
-				//	// ...wait
-				//}
-				//bCancelCopy = false;
-				//nCopyStatus = 10;
-				//sys_ppu_thread_exit(0);
-				//break;
-			}
-
-			sys_ppu_thread_yield();		
-			running++;
+			//if(gamePKG->bCancelCopy) 
+			//{
+				//...
+			//}
 
 			if((numr = fread(buffer, 1, 2352, filer)) != 2352) {
 				if(ferror(filer) != 0) 
 				{
-					fclose(filer);
-					fclose(filew);
-					cellFsUnlink(gamePKG->szFileOut); // delete file
+					bCopyError = true;
 					break;
 				}
 				else if(feof(filer) != 0);
 			}
 			if((numw = fwrite(buffer, 1, numr, filew)) != numr) 
 			{
-				fclose(filer);
-				fclose(filew);
-				cellFsUnlink(gamePKG->szFileOut); // delete file
+				bCopyError = true;
 				break;
 			}
 		}
-		fclose(filer);
-		fclose(filew);
+
+		if(filer) fclose(filer);
+		if(filew) fclose(filew);
 		
-		gamePKG->nCopyStatus = 2;
+		if(bCopyError)
+		{
+			cellFsUnlink(gamePKG->szFileOut); // delete file
+			gamePKG->nCopyStatus = 10;
+		}
 
 	} else {
-
-		// TODO: Add cleanup here
-		// delete created files and directory
+		if(filer) fclose(filer);
+		if(filew) {
+			fclose(filew);		
+			cellFsUnlink(gamePKG->szFileOut); // delete file
+		}
 		gamePKG->nCopyStatus = 10;
-
 		sys_ppu_thread_exit(0);
 	}
 
@@ -537,15 +521,27 @@ int c_gamePKG::QueuePKG()
 	char szPKGDir[256] = "";
 	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
 
-	cellFsMkdir(szPKGDir, CELL_FS_DEFAULT_CREATE_MODE_1); // perms 700
+	CellFsErrno ret = cellFsMkdir(szPKGDir, CELL_FS_DEFAULT_CREATE_MODE_1); // perms 700
+	
+	if(ret != CELL_FS_SUCCEEDED)
+	{
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
+			"[Error] Could not create the required directory on HDD.", 
+			callbackfunction, NULL, NULL
+		);
+		pkglst[nSelectedPKG]->bQueued = false;
+		return 0;
+	}
 
 	if(!CreatePDBFiles())
 	{
-		::cellMsgDialogOpen(
+		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
 			"[Error] Could not create / write needed files to HDD.", 
 			callbackfunction, NULL, NULL
 		);
+		pkglst[nSelectedPKG]->bQueued = false;
 		return 0;
 	}
 
