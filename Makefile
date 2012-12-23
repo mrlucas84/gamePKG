@@ -4,7 +4,6 @@
 APP_VER			=1.01
 DATE 			=$(shell date +"%Y%m%d")
 
-MOD_ELF 		= bin/modELF
 PSN_PKG_NPDRM 	= bin/psn_package_npdrm
 
 SELF_APP_VER	=0001000100000000
@@ -49,7 +48,6 @@ include $(CELL_MK_DIR)/sdk.target.mk
 
 gamePKG: $(PPU_TARGET)
 	@$(PPU_STRIP) -s $(PPU_TARGET) -o $(OBJS_DIR)/$(PPU_TARGET)
-#	@$(MOD_ELF) $(OBJS_DIR)/$(PPU_TARGET)
 	@rm $(PPU_TARGET)
 	@cd bin/ && $(MAKE_SELF_NPDRM) ../$(OBJS_DIR)/$(PPU_TARGET) ../release/PS3_GAME/USRDIR/EBOOT.BIN && cd ../
 	@$(PSN_PKG_NPDRM) release/package.conf release/PS3_GAME/

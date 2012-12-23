@@ -175,24 +175,24 @@ void c_gamePKG::DisplayFrame()
 	{
 		if(nPKG == nTotalPKG) break;
 
-		uint32_t nColor	= 0xffffffff;	// white
-		nFontSize = 0.6f;
+		uint32_t nColor	= 0xffffffff;		// white
+		nFontSize		= 0.6f;
 
 		// PKG QUEUED
 		if(pkglst[nPKG]->bQueued) 
 		{
-			nColor = 0xff00ff00;		// green
+			nColor		= 0xff00ff00;		// green
 		}
 
 		// PKG SELECTED
 		if(nPKG == nSelectedPKG) 
 		{
-			nColor = 0xff00ccff;		// yellow
-			nFontSize = 0.8f;
+			nColor		= 0xff00ccff;		// yellow
+			nFontSize	= 0.8f;
 
 			if(pkglst[nPKG]->bQueued) 
 			{
-				nColor = 0xff0000ff;	// red
+				nColor	= 0xff0000ff;		// red
 			}
 		}
 
@@ -222,18 +222,18 @@ void c_gamePKG::InputFrame()
 	// Navigation UP/DOWN with no delay
 	if( !app.mIsUpPressed && app.upPressedNow)
 	{
-		if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
+		if(nSelectedPKG > 0 && nSelectedPKG <= nTotalPKG) 
 		{
-			gamePKG->nSelectedPKG--;
+			nSelectedPKG--;
 		}
 		nSelInputFrame = 0;
 	} 
 	
 	if( !app.mIsDownPressed && app.downPressedNow)
 	{
-		if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
+		if(nSelectedPKG >= 0 && nSelectedPKG < nTotalPKG-1)
 		{
-			gamePKG->nSelectedPKG++;
+			nSelectedPKG++;
 		}
 		nSelInputFrame = 0;
 	}	
@@ -243,16 +243,16 @@ void c_gamePKG::InputFrame()
 	{
 		if( app.mIsUpPressed && app.upPressedNow)
 		{
-			if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
+			if(nSelectedPKG > 0 && nSelectedPKG <= nTotalPKG) 
 			{
-				gamePKG->nSelectedPKG--;
+				nSelectedPKG--;
 			}			
 		}
 		if( app.mIsDownPressed && app.downPressedNow)
 		{		
-			if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
+			if(nSelectedPKG >= 0 && nSelectedPKG < nTotalPKG-1) 
 			{
-				gamePKG->nSelectedPKG++;
+				nSelectedPKG++;
 			}
 		}
 		nSelInputFrame = 0;
@@ -267,16 +267,16 @@ void c_gamePKG::InputFrame()
 
 	if ( !app.mIsCrossPressed && app.crossPressedNow ) 
 	{
-		if(gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued) 
+		if(pkglst[nSelectedPKG]->bQueued) 
 		{
 			// already queued...
 			::cellMsgDialogOpen2(
 				CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
-				"Sorry, you already queued this PKG.", 
+				"Sorry, this PKG is already queued.",
 				DlgCallbackFunction, NULL, NULL
 			);
 		} else {
-			gamePKG->QueuePKG();	
+			QueuePKG();
 		}
 	}
 }
@@ -300,7 +300,7 @@ void c_gamePKG::DlgDisplayFrame()
 			DlgCallbackFunction, NULL, NULL
 		);
 
-		gamePKG->nCopyStatus = 0; // avoid loop
+		nCopyStatus = 0; // avoid loop
 	}
 
 	// COPY [OK]
@@ -309,7 +309,7 @@ void c_gamePKG::DlgDisplayFrame()
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully added \"%s\" to queue.", gamePKG->szFileIn);
+		sprintf(szMsg, "Successfully added \"%s\" to queue.", szFileIn);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
@@ -327,7 +327,7 @@ void c_gamePKG::DlgDisplayFrame()
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Error while processing \"%s\".", gamePKG->szFileIn);
+		sprintf(szMsg, "Error while processing \"%s\".", szFileIn);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF, 
@@ -403,7 +403,7 @@ int c_gamePKG::ParsePKGList(const char* szDevice)
 					pkglst[nTotalPKG]->nPKGID = nPKGID;
 
 					// PKG Size in bytes
-					pkglst[nTotalPKG]->nSize = this->GetPKGSize(pkglst[nTotalPKG]->path);
+					pkglst[nTotalPKG]->nSize = GetPKGSize(pkglst[nTotalPKG]->path);
 					
 					nTotalPKG++;
 					nPKGID++;
@@ -474,6 +474,9 @@ void c_gamePKG::RefreshPKGList()
 		nTotalPKG = 0;
 	}
 
+	ParsePKGList("/dev_hdd0/pkg");
+	ParsePKGList("/dev_hdd0/package");
+
 	ParsePKGList("/dev_usb000");
 	ParsePKGList("/dev_usb000/pkg");
 	ParsePKGList("/dev_usb000/package");
@@ -494,8 +497,12 @@ void c_gamePKG::RefreshPKGList()
 	ParsePKGList("/dev_usb004/pkg");
 	ParsePKGList("/dev_usb004/package");
 
-	ParsePKGList("/dev_hdd0/pkg");
-	ParsePKGList("/dev_hdd0/package");
+	ParsePKGList("/dev_sd");
+	ParsePKGList("/dev_sd/pkg");
+	ParsePKGList("/dev_sd/package");
+
+	// todo: add micro sd support
+
 }
 
 int c_gamePKG::RemovePKGDir(int nId)
