@@ -24,13 +24,14 @@ TODO:
 
 CapApp app;
 
-void callbackfunction(int buttonType, void */*userData*/);
-void cbFileCopyDlg(int buttonType, void */*userData*/);
+void DlgCallbackFunction(int buttonType, void */*userData*/);
+
+#define PADBIND(_in1, _in2)	\
+	_in1 = pPad->bindFilter();	\
+	_in1->setChannel(_in2);	
 
 bool CapApp::onInit(int argc, char **argv) 
 {
-	gamePKG = new c_gamePKG();
-
     // always call the superclass's method
     ::FWGLApplication::onInit(argc, argv);
 
@@ -40,38 +41,42 @@ bool CapApp::onInit(int argc, char **argv)
 
 	if(pPad != NULL)
 	{
-		mpCircle = pPad->bindFilter();
-		mpCircle->setChannel(FWInput::Channel_Button_Circle);
-		
-		mpCross = pPad->bindFilter();
-		mpCross->setChannel(FWInput::Channel_Button_Cross);
-		
-		mpUp = pPad->bindFilter();
-		mpUp->setChannel(FWInput::Channel_Button_Up);
-
-		mpDown = pPad->bindFilter();
-		mpDown->setChannel(FWInput::Channel_Button_Down);
+		PADBIND(mpSquare	, FWInput::Channel_Button_Square);
+		PADBIND(mpCross		, FWInput::Channel_Button_Cross);
+		PADBIND(mpCircle	, FWInput::Channel_Button_Circle);
+		PADBIND(mpTriangle	, FWInput::Channel_Button_Triangle);
+		PADBIND(mpSelect	, FWInput::Channel_Button_Select);
+		PADBIND(mpStart		, FWInput::Channel_Button_Start);
+		PADBIND(mpUp		, FWInput::Channel_Button_Up);
+		PADBIND(mpDown		, FWInput::Channel_Button_Down);
+		PADBIND(mpLeft		, FWInput::Channel_Button_Left);
+		PADBIND(mpRight		, FWInput::Channel_Button_Right);
 	}
 
+	gamePKG = new c_gamePKG();
 	gamePKG->RefreshPKGList();
 
-    // return true to indicate success
     return true;
 }
 
-CapApp::CapApp() : 
-	mFrame(0),
-	mIsCirclePressed(false),
-	mIsCrossPressed(false),
-	mIsUpPressed(false),
-	mIsDownPressed(false)
+CapApp::CapApp()
 {
+	mFrame = 0;
+
+	mIsCirclePressed = mIsCrossPressed = mIsSquarePressed = mIsTrianglePressed = false;
+	mIsSelectPressed = mIsStartPressed = false;
+	mIsUpPressed = mIsDownPressed = mIsLeftPressed = mIsRightPressed = false;
+
+	squarePressedNow = crossPressedNow = circlePressedNow = trianglePressedNow = false;	
+	selectPressedNow = startPressedNow = false;
+	upPressedNow = downPressedNow = leftPressedNow = rightPressedNow = false;
+
     // set up mStartupInfo if necessary
 }
 
-void CapApp::dbgFontInit(void)
+void CapApp::dbgFontInit()
 {
-	// initialize debug font library, then open 2 consoles
+	// initialize debug font library
 	int ret;
 
 	CellDbgFontConfig cfg;
@@ -85,12 +90,15 @@ void CapApp::dbgFontInit(void)
 
 	if (ret != CELL_OK) 
 	{
-		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontInit() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontInit() failed", DlgCallbackFunction, NULL, NULL);
 		return;
 	}
 
+	// Debug font consoles - Unused at this moment...
+	
+	/*
 	CellDbgFontConsoleConfig ccfg[2];
-	memset(ccfg, 0, sizeof(ccfg));
+	memset(ccfg, 0, sizeof(CellDbgFontConsoleConfig) * 2);
 
 	ccfg[0].posLeft     = 0.1f;
 	ccfg[0].posTop      = 0.8f;
@@ -101,11 +109,11 @@ void CapApp::dbgFontInit(void)
 	// ABGR -> orange
 	ccfg[0].color       = 0xff0080ff;
 
-	//mDbgFontID[0] = cellDbgFontConsoleOpen(&ccfg[0]);
+	mDbgFontID[0] = cellDbgFontConsoleOpen(&ccfg[0]);
 
 	if (mDbgFontID[0] < 0) 
 	{
-		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", DlgCallbackFunction, NULL, NULL);
 		return;
 	}
 
@@ -118,280 +126,67 @@ void CapApp::dbgFontInit(void)
 	// ABGR -> pale blue
 	ccfg[1].color       = 0xffff8080;
 
+	mDbgFontID[0] = cellDbgFontConsoleOpen(&ccfg[1]);
+
 	if (mDbgFontID[1] < 0) 
 	{
-		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", callbackfunction, NULL, NULL);
+		cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "cellDbgFontConsoleOpen() failed", DlgCallbackFunction, NULL, NULL);
 		return;
 	}
+	*/
 }
 
-void CapApp::dbgFontPut(void)
-{
-	float xPos = 0.05f;
-	float yPos = 0.05f;
-	float yPosDiff = 0.03f;	
-	float nFontSize = 0.6f;
-
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
-	yPos += yPosDiff;	
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, " gamePKG Tool v1.1 - by CaptainCPS-X [2012] [Yes the UI sucks...LOL]");
-	yPos += yPosDiff;
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
-	yPos += yPosDiff;
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(O)- TO EXIT AND RETURN TO XMB");
-	yPos += yPosDiff;
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(X)- TO QUEUE PKG ON XMB");
-	yPos += yPosDiff;
-	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(/\)- TO VIEW FILE INFO");
-	//yPos += yPosDiff;
-	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -([ ])- TO REMOVE FROM QUEUE");
-	//yPos += yPosDiff;
-	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -[SELECT]- TO WIPE ALL QUEUES & REFRESH DEVICES");
-	//yPos += yPosDiff;
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
-	yPos += yPosDiff;
-
-	// Main menu
-	uint32_t block_size = 0;
-	uint64_t free_block_count = 0;
-	
-	::cellFsGetFreeSize("/dev_hdd0", &block_size, &free_block_count);
-
-	uint64_t nFreeHDDSpace = block_size * free_block_count;
-	
-	::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, "Free Space on /dev_hdd0/: %.2f %s (%lld bytes)", 
-		GetByteUnit(nFreeHDDSpace), 
-		GetByteUnitStr(nFreeHDDSpace),
-		nFreeHDDSpace
-	);
-	yPos += yPosDiff;
-
-	//::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, "Free Space on /dev_usb000/: %.2f %s (%lld bytes)", 
-	//	GetByteUnit(nFreeUSB000Space), 
-	//	GetByteUnitStr(nFreeUSB000Space),
-	//	nFreeUSB000Space
-	//	//GetNumWithCommas(nFreeUSB000Space)
-	//);
-	//yPos += yPosDiff;
-
-	::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, 
-		"Total PKG found on all scanned devices: %d", gamePKG->nTotalPKG);
-
-	yPos += yPosDiff;
-
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
-	yPos += yPosDiff;
-
-	int nPKGListMax = 14;
-
-	if(gamePKG->nSelectedPKG > nPKGListMax || gamePKG->nPKGListTop > 0)
-	{
-		if(gamePKG->nPKGListTop < (gamePKG->nSelectedPKG - nPKGListMax))
-		{
-			gamePKG->nPKGListTop = gamePKG->nSelectedPKG - nPKGListMax;
-		}
-
-		if(gamePKG->nPKGListTop > 0) 
-		{
-			if(gamePKG->nSelectedPKG < gamePKG->nPKGListTop)
-			{
-				gamePKG->nPKGListTop = gamePKG->nSelectedPKG;
-			}
-		} else {
-			gamePKG->nPKGListTop = gamePKG->nSelectedPKG - nPKGListMax;
-		}
-	} else {
-		gamePKG->nPKGListTop = gamePKG->nSelectedPKG - nPKGListMax;
-	}
-
-	if(gamePKG->nPKGListTop < 0) gamePKG->nPKGListTop = 0;
-
-	int nPKG = gamePKG->nPKGListTop;
-	
-	while(nPKG <= (gamePKG->nPKGListTop + nPKGListMax))
-	{
-		if(nPKG == gamePKG->nTotalPKG) break;
-
-		uint32_t nColor	= 0xffffffff;	// white
-		nFontSize = 0.6f;
-
-		// PKG QUEUED
-		if(gamePKG->pkglst[nPKG]->bQueued) 
-		{
-			nColor = 0xff00ff00;		// green
-		}
-
-		// PKG SELECTED
-		if(nPKG == gamePKG->nSelectedPKG) 
-		{
-			nColor = 0xff00ccff;		// yellow
-			nFontSize = 0.8f;
-
-			if(gamePKG->pkglst[nPKG]->bQueued) {
-				nColor = 0xff0000ff;	// red
-			}
-		}
-
-		::cellDbgFontPrintf(xPos, yPos, nFontSize, nColor, "[%d] %s [%.2f %s] %s %s", 
-			nPKG+1, 
-			gamePKG->pkglst[nPKG]->title,
-			GetByteUnit(gamePKG->pkglst[nPKG]->nSize), GetByteUnitStr(gamePKG->pkglst[nPKG]->nSize),
-			gamePKG->pkglst[nPKG]->bInternal ? "[HDD]" : "[USB]",
-			gamePKG->pkglst[nPKG]->bQueued ? "[Queued]" : " "
-		);
-
-		yPos += yPosDiff;
-
-		nPKG++;
-	}
-
-	nFontSize = 0.6f;
-
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
-	yPos += yPosDiff;
-}
-
-void CapApp::dbgFontDraw(void)
+void CapApp::dbgFontDraw()
 {
 	::cellDbgFontDraw();
 }
 
-void CapApp::dbgFontExit(void)
+void CapApp::dbgFontExit()
 {
 	::cellDbgFontExit();
 }
 
-void CapApp::Input() 
+void CapApp::InputFrameStart() 
 {
-	bool circlePressedNow	= mpCircle->getBoolValue();
-	bool crossPressedNow	= mpCross->getBoolValue();
-	bool upPressedNow		= mpUp->getBoolValue();
-	bool downPressedNow		= mpDown->getBoolValue();
+	squarePressedNow	= mpSquare->getBoolValue();
+	crossPressedNow		= mpCross->getBoolValue();
+	circlePressedNow	= mpCircle->getBoolValue();
+	trianglePressedNow	= mpTriangle->getBoolValue();
 
-	static int nSelInputFrame = 0;
+	selectPressedNow	= mpSelect->getBoolValue();
+	startPressedNow		= mpStart->getBoolValue();
 
-	// Navigation UP/DOWN with no delay
-	if( !mIsUpPressed && upPressedNow)
-	{
-		if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
-		{
-			gamePKG->nSelectedPKG--;
-		}
-		nSelInputFrame = 0;
-	} 
-	
-	if( !mIsDownPressed && downPressedNow)
-	{
-		if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
-		{
-			gamePKG->nSelectedPKG++;
-		}
-		nSelInputFrame = 0;
-	}	
-	
-	// Navigation UP/DOWN with delay
-	if(((mFrame + nSelInputFrame) - mFrame) == 5)
-	{
-		if( mIsUpPressed && upPressedNow)
-		{
-			if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
-			{
-				gamePKG->nSelectedPKG--;
-			}			
-		}
-		if( mIsDownPressed && downPressedNow)
-		{		
-			if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
-			{
-				gamePKG->nSelectedPKG++;
-			}
-		}
-		nSelInputFrame = 0;
-	}
-	nSelInputFrame++;
+	upPressedNow		= mpUp->getBoolValue();
+	downPressedNow		= mpDown->getBoolValue();
+	leftPressedNow		= mpLeft->getBoolValue();
+	rightPressedNow		= mpRight->getBoolValue();
+}
 
-	if ( !mIsCirclePressed && circlePressedNow ) 
-	{
-		this->onShutdown();
-		exit(0);
-	}
+void CapApp::InputFrameEnd()
+{
+	mIsSquarePressed	= squarePressedNow;
+	mIsCrossPressed		= crossPressedNow;
+	mIsCirclePressed	= circlePressedNow;
+	mIsTrianglePressed	= trianglePressedNow;
 
-	if ( !mIsCrossPressed && crossPressedNow ) 
-	{
-		if(gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued) 
-		{
-			// already queued...
-			::cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, "Sorry, you already queued this PKG.", callbackfunction, NULL, NULL);
-		} else {
-			gamePKG->QueuePKG();	
-		}
-	}
+	mIsSelectPressed	= selectPressedNow;
+	mIsStartPressed		= startPressedNow;
 
-	mIsCirclePressed = circlePressedNow;
-	mIsCrossPressed  = crossPressedNow;
-	mIsUpPressed = upPressedNow;
-	mIsDownPressed = downPressedNow;	
+	mIsUpPressed		= upPressedNow;
+	mIsDownPressed		= downPressedNow;
+	mIsLeftPressed		= leftPressedNow;
+	mIsRightPressed		= rightPressedNow;
 }
 
 bool CapApp::onUpdate()
 {
 	mFrame++;
 
-	Input();
-	dbgFontPut();
+	InputFrameStart();
 
-	// COPY STARTED
-	if(gamePKG->nCopyStatus == 1)
-	{
-		char szMsg[256] = "";
-		sprintf(szMsg, "Processing \"%s\" [%.2f %s]...\n\nPlease wait, this could take a while depending on the size of the PKG. Do not turn off the system.", 
-			gamePKG->szFileIn,
-			GetByteUnit(gamePKG->pkglst[gamePKG->nSelectedPKG]->nSize), GetByteUnitStr(gamePKG->pkglst[gamePKG->nSelectedPKG]->nSize)
-		);
+	gamePKG->Frame();
 
-		::cellMsgDialogOpen2(
-			CELL_MSGDIALOG_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, // canceling not implemented yet 
-			szMsg, 
-			cbFileCopyDlg, NULL, NULL);
-
-		gamePKG->nCopyStatus = 0; // avoid loop
-	}
-
-	// COPY [OK]
-	if(gamePKG->nCopyStatus == 2) 
-	{
-		cellMsgDialogAbort();
-
-		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully added \"%s\" to queue.", gamePKG->szFileIn);
-
-		::cellMsgDialogOpen2(
-			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
-			szMsg, 
-			callbackfunction, NULL, NULL);
-
-		gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued = true;
-		gamePKG->nCopyStatus = 0;
-	}
-
-	// COPY [ERROR]
-	if(gamePKG->nCopyStatus == 10) 
-	{
-		cellMsgDialogAbort();
-
-		char szMsg[256] = "";
-		sprintf(szMsg, "Error while processing \"%s\".", gamePKG->szFileIn);
-
-		::cellMsgDialogOpen2(
-			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF, 
-			szMsg, 
-			callbackfunction, NULL, NULL);
-
-		gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued = false;
-		gamePKG->DeletePDBFiles(gamePKG->pkglst[gamePKG->nSelectedPKG]->nPKGID);
-		gamePKG->RemovePKGDir(gamePKG->pkglst[gamePKG->nSelectedPKG]->nPKGID);		
-		gamePKG->nCopyStatus = 0;
-	}
+	InputFrameEnd();
 
 	return FWGLApplication::onUpdate();
 }
@@ -406,12 +201,23 @@ void CapApp::onRender()
 
 void CapApp::onShutdown() 
 {
+	gamePKG->~c_gamePKG();
+
 	FWInputDevice *pPad = FWInput::getDevice(FWInput::DeviceType_Pad, 0);
 
 	if(pPad != NULL)
 	{
-		pPad->unbindFilter(mpCircle);
+		pPad->unbindFilter(mpSquare);
 		pPad->unbindFilter(mpCross);
+		pPad->unbindFilter(mpCircle);
+		pPad->unbindFilter(mpTriangle);
+		pPad->unbindFilter(mpSelect);
+		pPad->unbindFilter(mpStart);
+		pPad->unbindFilter(mpUp);
+		pPad->unbindFilter(mpDown);
+		pPad->unbindFilter(mpLeft);
+		pPad->unbindFilter(mpRight);
+		
 	}
 
     FWGLApplication::onShutdown();

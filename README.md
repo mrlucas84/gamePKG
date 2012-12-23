@@ -12,9 +12,6 @@ Main objective of this application is to help
 users on Rogero CFW 4.30 (v2.03) to install
 PKGs without wasting much time.
 
-NOTE: Source Code will be released very soon after
-I finish cleaning it up, etc.
-
 Technical Info:
 ----------------------------------------------
 
@@ -58,6 +55,13 @@ Usage:
 
 Changelog:
 ----------------------------------------------
+
+1.1
+
+- Improved application performance by cleaning up, organizing and simplifying lot of code.
+- Copy of PKG files is faster now.
+- Rewrote module to write the PDB & Icon files.
+- Other source code improvements.
 
 1.0
 

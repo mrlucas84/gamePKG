@@ -23,31 +23,40 @@
 
 class CapApp : public FWGLApplication
 {
-    public:
-        CapApp();
+public:
+	CapApp();
 
-        // sample framework overrides
-        virtual bool onInit(int argc, char **argv);
-        virtual void onRender();
-        virtual void onShutdown();
-		virtual bool onUpdate();
+	bool onInit(int argc, char **argv);
+	void onRender();
+	void onShutdown();
+	bool onUpdate();
 
-		virtual void Input();
+	void InputFrameStart();
+	void InputFrameEnd();
 
-		virtual void dbgFontInit(void);
-		virtual void dbgFontPut(void);
-		virtual void dbgFontDraw(void);
-		virtual void dbgFontExit(void);
+	void dbgFontInit();
+	void dbgFontDraw();
+	void dbgFontExit();
 
-    protected:
-    private:
-		FWInputFilter	*mpEnterKey, *mpSpaceKey;
-		FWInputFilter   *mpCircle, *mpCross, *mpUp, *mpDown;
+	unsigned int mFrame;
 
-		CellDbgFontConsoleId mDbgFontID[2];
-		unsigned int	mFrame;
-		bool            mIsCirclePressed, mIsCrossPressed;
-		bool			mIsUpPressed, mIsDownPressed;
+	bool	mIsCirclePressed, mIsCrossPressed, mIsSquarePressed, mIsTrianglePressed;
+	bool	mIsSelectPressed, mIsStartPressed;
+	bool	mIsUpPressed, mIsDownPressed, mIsLeftPressed, mIsRightPressed;
+
+	bool	squarePressedNow, crossPressedNow, circlePressedNow, trianglePressedNow;	
+	bool	selectPressedNow, startPressedNow;
+	bool	upPressedNow, downPressedNow, leftPressedNow, rightPressedNow;
+
+	FWInputFilter   *mpCircle, *mpCross, *mpSquare, *mpTriangle;		
+	FWInputFilter   *mpSelect, *mpStart;
+	FWInputFilter   *mpUp, *mpDown, *mpLeft, *mpRight;
+
+	//CellDbgFontConsoleId mDbgFontID[2];
+
+protected:
+private:
+
 };
 
 extern CapApp app;

@@ -5,55 +5,6 @@
 #include "main.h"
 #include "misc.h"
 
-/* Returns a byte of value equal to that represented by a 2 character hex
-string. Ex. input of "A4" returns 164. */
-unsigned char byte_from_hex_str(const char *hex_string)
-{
-	unsigned char outbyte = 0;
-	unsigned char value1, value2 = 0;
-	//puts(hex_string);
- 
-	if (hex_string[0] >= 48 && hex_string[0] <= 57)
-		value1 = hex_string[0] - 48;
-	else if (hex_string[0] >= 65 && hex_string[0] <= 70)
-		value1 = hex_string[0] - 55;
- 
-	if (hex_string[1] >= 48 && hex_string[1] <= 57)
-		value2 = hex_string[1] - 48;
-	else if (hex_string[1] >= 65 && hex_string[1] <= 70)
-		value2 = hex_string[1] - 55;
- 
-	//printf("Val1: %d, Val2: %d\n", value1, value2);
- 
-	outbyte = value1;
-	outbyte = outbyte << 4;
-	outbyte = outbyte + value2;
-	//printf("Outbyte: %d\n", outbyte);
-	return outbyte;
-}
- 
-/* Writes a string of bytes to out_bytes converted from the hex values in 
-hex_string. hex_string must be a length divisible by 2. Returns value 0 if 
-completed successfully, 1 on error. */
-int bytes_from_hex_string(unsigned char *out_bytes, const char *hex_string)
-{
-	if (0 != strlen(hex_string) % 2)
-		return 1; //not divisible by 2!
- 
-	int i = 0;
-	int outbyte_counter = 0;
-	int len = strlen(hex_string);
-	for(i=0;i<len;i+=2)
-	{
-		char hex_string_piece[2] = "";
-		hex_string_piece[0] = *(hex_string+i);
-		hex_string_piece[1] = *(hex_string+(i+1));
-		*(out_bytes+outbyte_counter) = byte_from_hex_str(hex_string_piece);
-		outbyte_counter++;
-	}
-	return 0;
-}
-
 #define addch(str, ch)			\
 	str[strlen(str)]	= ch;	\
 	str[strlen(str)+1]	= '\0';

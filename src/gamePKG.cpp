@@ -15,10 +15,8 @@
 
 	B) Copy PKG file "gamePKG->pkglst[gamePKG->nSelectedPKG]->path" to "/dev_hdd0/vsh/game_pkg/800000.."
 	
-	C) Write structured data files to "/dev_hdd0/vsh/game_pkg/800000..":
+	C) Write structured data file to "/dev_hdd0/vsh/game_pkg/800000..":
 		"d0.pdb"
-		"d1.pdb"
-		"f0.pdb"
 		"ICON_FILE"
 
 */
@@ -29,35 +27,11 @@
 c_gamePKG* gamePKG;
 void thread_FileCopy(uint64_t arg);
 
-// -------------------------------------------------------
-// This is template data, it should not be used as is.
-// Check "int c_gamePKG::CreatePDBFiles()" for reference.
-// -------------------------------------------------------
-extern unsigned char d0pdb_ttxt_hdr[149];
-extern unsigned char d0pdb_ttxt1[13];
-extern unsigned char d0pdb_ttxt2[2];
-extern unsigned char d0pdb_fn_hdr[12];
-extern unsigned char d0pdb_iconpath_hdr[38];
-extern unsigned char d1pdb_iconpath_hdr1[38];
-extern unsigned char d1pdb_iconpath_hdr2[12];
-extern unsigned char iconfile_data[106703];
+extern unsigned char iconfile_data[0x1A0CF];
+
 // -------------------------------------------------------
 
-void cbFileCopyDlg(int buttonType, void */*userData*/)
-{
-
-    switch( buttonType ) 
-	{
-		case CELL_MSGDIALOG_BUTTON_ESCAPE:
-			gamePKG->bCancelCopy = true;
-			break;
-
-		default:
-			break;
-    }
-}
-
-void callbackfunction(int buttonType, void */*userData*/)
+void DlgCallbackFunction(int buttonType, void */*userData*/)
 {
     switch( buttonType ) 
 	{
@@ -70,6 +44,304 @@ void callbackfunction(int buttonType, void */*userData*/)
 		default:
 			break;
     }
+}
+
+// Initialize gamePKG module
+c_gamePKG::c_gamePKG()
+{
+	nSelectedPKG	= 0;
+	nPKGListTop		= 0;
+	nTotalPKG		= 0;
+	bDeleting		= false;
+	nCopyStatus		= 0;
+	nPKGID			= 80000000;
+}
+
+c_gamePKG::~c_gamePKG()
+{
+	// ...
+	if(nTotalPKG > 0)
+	{
+		for(int nPKG = 0; nPKG < nTotalPKG; nPKG++)
+		{
+			if(pkglst[nPKG]) 
+			{
+				delete [] pkglst[nPKG];
+				pkglst[nPKG] = NULL;
+			}
+		}
+		nTotalPKG = 0;
+	}
+	nSelectedPKG	= 0;
+	nPKGListTop		= 0;
+	bDeleting		= false;
+	nCopyStatus		= 0;
+	nPKGID			= 80000000;
+}
+
+void c_gamePKG::Frame()
+{
+	DisplayFrame();
+
+	InputFrame();
+
+	DlgDisplayFrame();
+}
+
+void c_gamePKG::DisplayFrame()
+{
+	float xPos		= 0.05f;
+	float yPos		= 0.05f;
+	float yPosDiff	= 0.03f;	
+	float nFontSize = 0.6f;
+
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
+	yPos += yPosDiff;	
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, " gamePKG Tool v1.1 - by CaptainCPS-X [2012]");
+	yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
+	yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(O)- TO EXIT AND RETURN TO XMB");
+	yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(X)- TO QUEUE PKG ON XMB");
+	yPos += yPosDiff;
+	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -(/\)- TO VIEW FILE INFO");
+	//yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -([ ])- TO REMOVE FROM QUEUE");
+	yPos += yPosDiff;
+	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -[SELECT]- TO WIPE ALL QUEUES & REFRESH DEVICES");
+	//yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
+	yPos += yPosDiff;
+
+	// Main menu
+	uint32_t block_size			= 0;
+	uint64_t free_block_count	= 0;
+	
+	::cellFsGetFreeSize("/dev_hdd0", &block_size, &free_block_count);
+
+	uint64_t nFreeHDDSpace = block_size * free_block_count;
+	
+	::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, "Free Space on /dev_hdd0/: %.2f %s (%lld bytes)", 
+		GetByteUnit(nFreeHDDSpace), 
+		GetByteUnitStr(nFreeHDDSpace),
+		nFreeHDDSpace
+	);
+	yPos += yPosDiff;
+
+	//::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, "Free Space on /dev_usb000/: %.2f %s (%lld bytes)", 
+	//	GetByteUnit(nFreeUSB000Space), 
+	//	GetByteUnitStr(nFreeUSB000Space),
+	//	nFreeUSB000Space
+	//	//GetNumWithCommas(nFreeUSB000Space)
+	//);
+	//yPos += yPosDiff;
+
+	::cellDbgFontPrintf(xPos, yPos, nFontSize, 0xffffffff, 
+		"Total PKG found on all scanned devices: %d", nTotalPKG);
+
+	yPos += yPosDiff;
+
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
+	yPos += yPosDiff;
+
+	int nPKGListMax = 14;
+
+	if(nSelectedPKG > nPKGListMax || nPKGListTop > 0)
+	{
+		if(nPKGListTop < (nSelectedPKG - nPKGListMax))
+		{
+			nPKGListTop = nSelectedPKG - nPKGListMax;
+		}
+
+		if(nPKGListTop > 0) 
+		{
+			if(nSelectedPKG < nPKGListTop)
+			{
+				nPKGListTop = nSelectedPKG;
+			}
+		} else {
+			nPKGListTop = nSelectedPKG - nPKGListMax;
+		}
+	} else {
+		nPKGListTop = nSelectedPKG - nPKGListMax;
+	}
+
+	if(nPKGListTop < 0) nPKGListTop = 0;
+
+	int nPKG = nPKGListTop;
+	
+	while(nPKG <= (nPKGListTop + nPKGListMax))
+	{
+		if(nPKG == nTotalPKG) break;
+
+		uint32_t nColor	= 0xffffffff;	// white
+		nFontSize = 0.6f;
+
+		// PKG QUEUED
+		if(pkglst[nPKG]->bQueued) 
+		{
+			nColor = 0xff00ff00;		// green
+		}
+
+		// PKG SELECTED
+		if(nPKG == nSelectedPKG) 
+		{
+			nColor = 0xff00ccff;		// yellow
+			nFontSize = 0.8f;
+
+			if(pkglst[nPKG]->bQueued) 
+			{
+				nColor = 0xff0000ff;	// red
+			}
+		}
+
+		::cellDbgFontPrintf(xPos, yPos, nFontSize, nColor, "[%d] %s [%.2f %s] %s %s", 
+			nPKG+1, 
+			pkglst[nPKG]->title,
+			GetByteUnit(pkglst[nPKG]->nSize), GetByteUnitStr(pkglst[nPKG]->nSize),
+			pkglst[nPKG]->bInternal ? "[HDD]" : "[USB]",
+			pkglst[nPKG]->bQueued ? "[Queued]" : " "
+		);
+
+		yPos += yPosDiff;
+
+		nPKG++;
+	}
+
+	nFontSize = 0.6f;
+
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
+	yPos += yPosDiff;
+}
+
+void c_gamePKG::InputFrame()
+{
+	static int nSelInputFrame = 0;
+
+	// Navigation UP/DOWN with no delay
+	if( !app.mIsUpPressed && app.upPressedNow)
+	{
+		if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
+		{
+			gamePKG->nSelectedPKG--;
+		}
+		nSelInputFrame = 0;
+	} 
+	
+	if( !app.mIsDownPressed && app.downPressedNow)
+	{
+		if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
+		{
+			gamePKG->nSelectedPKG++;
+		}
+		nSelInputFrame = 0;
+	}	
+	
+	// Navigation UP/DOWN with delay
+	if(((app.mFrame + nSelInputFrame) - app.mFrame) == 5)
+	{
+		if( app.mIsUpPressed && app.upPressedNow)
+		{
+			if(gamePKG->nSelectedPKG > 0 && gamePKG->nSelectedPKG <= gamePKG->nTotalPKG) 
+			{
+				gamePKG->nSelectedPKG--;
+			}			
+		}
+		if( app.mIsDownPressed && app.downPressedNow)
+		{		
+			if(gamePKG->nSelectedPKG >= 0 && gamePKG->nSelectedPKG < gamePKG->nTotalPKG-1) 
+			{
+				gamePKG->nSelectedPKG++;
+			}
+		}
+		nSelInputFrame = 0;
+	}
+	nSelInputFrame++;
+
+	if ( !app.mIsCirclePressed && app.circlePressedNow ) 
+	{
+		app.onShutdown();
+		exit(0);
+	}
+
+	if ( !app.mIsCrossPressed && app.crossPressedNow ) 
+	{
+		if(gamePKG->pkglst[gamePKG->nSelectedPKG]->bQueued) 
+		{
+			// already queued...
+			::cellMsgDialogOpen2(
+				CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
+				"Sorry, you already queued this PKG.", 
+				DlgCallbackFunction, NULL, NULL
+			);
+		} else {
+			gamePKG->QueuePKG();	
+		}
+	}
+}
+
+void c_gamePKG::DlgDisplayFrame()
+{
+	// COPY STARTED
+	if(nCopyStatus == 1)
+	{
+		char szMsg[256] = "";
+		sprintf(
+			szMsg, 
+			"Processing \"%s\" [%.2f %s]...\n\nPlease wait, this could take a while depending on the size of the PKG. Do not turn off the system.", 
+			szFileIn,
+			GetByteUnit(pkglst[nSelectedPKG]->nSize), GetByteUnitStr(pkglst[nSelectedPKG]->nSize)
+		);
+
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON,
+			szMsg,
+			DlgCallbackFunction, NULL, NULL
+		);
+
+		gamePKG->nCopyStatus = 0; // avoid loop
+	}
+
+	// COPY [OK]
+	if(nCopyStatus == 2) 
+	{
+		cellMsgDialogAbort();
+
+		char szMsg[256] = "";
+		sprintf(szMsg, "Successfully added \"%s\" to queue.", gamePKG->szFileIn);
+
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
+			szMsg, 
+			DlgCallbackFunction, NULL, NULL
+		);
+
+		pkglst[nSelectedPKG]->bQueued = true;
+		nCopyStatus = 0;
+	}
+
+	// COPY [ERROR]
+	if(nCopyStatus == 10) 
+	{
+		cellMsgDialogAbort();
+
+		char szMsg[256] = "";
+		sprintf(szMsg, "Error while processing \"%s\".", gamePKG->szFileIn);
+
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF, 
+			szMsg, 
+			DlgCallbackFunction, NULL, NULL
+		);
+
+		pkglst[nSelectedPKG]->bQueued = false;
+
+		DeletePDBFiles(pkglst[nSelectedPKG]->nPKGID);
+		RemovePKGDir(pkglst[nSelectedPKG]->nPKGID);
+
+		nCopyStatus = 0;
+	}
 }
 
 int c_gamePKG::ParsePKGList(const char* szDevice)
@@ -133,9 +405,6 @@ int c_gamePKG::ParsePKGList(const char* szDevice)
 					// PKG Size in bytes
 					pkglst[nTotalPKG]->nSize = this->GetPKGSize(pkglst[nTotalPKG]->path);
 					
-					// PKG HEX data
-					sprintf(pkglst[nTotalPKG]->szSize, "%010X", (unsigned int)pkglst[nTotalPKG]->nSize);
-
 					nTotalPKG++;
 					nPKGID++;
 
@@ -145,6 +414,9 @@ int c_gamePKG::ParsePKGList(const char* szDevice)
 		cellFsClosedir(fd);
 
 	} else {
+		
+		// DEBUG
+/*
 		const char *msg = NULL;
 		switch(res)
 		{
@@ -179,7 +451,8 @@ int c_gamePKG::ParsePKGList(const char* szDevice)
 				msg = "CELL_FS_EFAULT";
 				break;
 		}		
-		//::cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, msg, callbackfunction, NULL, NULL);		
+		::cellMsgDialogOpen2(CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, msg, DlgCallbackFunction, NULL, NULL);
+*/
 		return 0;
 	}
 
@@ -201,18 +474,23 @@ void c_gamePKG::RefreshPKGList()
 		nTotalPKG = 0;
 	}
 
+	ParsePKGList("/dev_usb000");
 	ParsePKGList("/dev_usb000/pkg");
 	ParsePKGList("/dev_usb000/package");
 
+	ParsePKGList("/dev_usb001");
 	ParsePKGList("/dev_usb001/pkg");
 	ParsePKGList("/dev_usb001/package");
 
+	ParsePKGList("/dev_usb002");
 	ParsePKGList("/dev_usb002/pkg");
 	ParsePKGList("/dev_usb002/package");
 
+	ParsePKGList("/dev_usb003");
 	ParsePKGList("/dev_usb003/pkg");
 	ParsePKGList("/dev_usb003/package");
 
+	ParsePKGList("/dev_usb004");
 	ParsePKGList("/dev_usb004/pkg");
 	ParsePKGList("/dev_usb004/package");
 
@@ -227,10 +505,12 @@ int c_gamePKG::RemovePKGDir(int nId)
 	
 	CellFsErrno ret = cellFsRmdir(szPKGDir);
 	
-	if(ret != CELL_FS_SUCCEEDED) {
+	if(ret != CELL_FS_SUCCEEDED) 
+	{
 		// couldn't delete the directory...
 		return 0;
 	}
+
 	return 1;
 }
 
@@ -238,231 +518,183 @@ int c_gamePKG::DeletePDBFiles(int nId)
 {
 	bDeleting = true;
 
-	char szPKGDir[256] = "";
-	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", nId);
+	char szPDB[256] = "";
+	char szIconFile[256] = "";
+	sprintf(szPDB, "/dev_hdd0/vsh/game_pkg/%d/d0.pdb", nId);
+	sprintf(szIconFile, "/dev_hdd0/vsh/game_pkg/%d/ICON_FILE", nId);
 
-	// delete files
-	char szFile[4][256] = {"","","",""};
-	char szPDB[4][256] = {"d0.pdb","d1.pdb","f0.pdb","ICON_FILE"};
-
-	for(int x = 0; x < 4; x++) 
+	FILE *fpPDB, *fpIcon;
+	
+	if((fpPDB = fopen(szPDB, "r")))
 	{
-		sprintf(szFile[x], "%s/%s", szPKGDir, szPDB[x]);
+		fclose(fpPDB);
+		fpPDB = NULL;
+		cellFsUnlink(szPDB);
+	}
 
-		FILE* fp = fopen(szFile[x], "r");
-
-		if(fp){
-			fclose(fp);
-			fp = NULL;
-			CellFsErrno ret = cellFsUnlink(szFile[x]);
-			if(ret != CELL_FS_SUCCEEDED)
-			{
-				// error deleting file
-				return 0;
-			}
-		}
+	if((fpIcon = fopen(szIconFile, "r")))
+	{
+		fclose(fpIcon);
+		fpIcon = NULL;
+		cellFsUnlink(szIconFile);
 	}
 
 	bDeleting = false;
+	
 	return 1;
 }
 
 uint64_t c_gamePKG::GetPKGSize(char* szFilePath)
 {
 	CellFsStat sb;
-	cellFsStat(szFilePath, &sb);
+	memset(&sb, 0, sizeof(CellFsStat));
 
+	cellFsStat(szFilePath, &sb);
+	
 	return sb.st_size;
 }
 
-// ---------------------------------------------------------------------
-/*
- Note: All the data handled here was carefully evaluated by myself
- by looking into binary data via HEX. 
+/* ---------------------------------------------------------------------
 
- There is no official documentation of these PDB file structures.
- If for any reason some of this data is wrongly structured, the
- PKG files will not appear correctly on the XMB after they have been
- put in queue.
+UPDATE [2012-12-21]:
+	
+- Rewrote whole function [Thanks to Dean & Deroad for the PDB structure info]
 
- * Detailed information of my findings will be documented here as 
- I get free time to work on this :)
-
- */
-// ---------------------------------------------------------------------
+ --------------------------------------------------------------------- */
 int c_gamePKG::CreatePDBFiles()
 {
-	// PKG
-	int nFNLen = strlen(pkglst[nSelectedPKG]->title) + 1; // filename length
+	// Create files	
+	char szPDBFile[256] = "";
+	char szIconFile[256] = "";
+	sprintf(szPDBFile, "/dev_hdd0/vsh/game_pkg/%d/d0.pdb", pkglst[nSelectedPKG]->nPKGID);
+	sprintf(szIconFile, "/dev_hdd0/vsh/game_pkg/%d/ICON_FILE", pkglst[nSelectedPKG]->nPKGID);
+	
+	FILE *fpPDB, *fpIcon;
+	fpPDB	= fopen(szPDBFile, "wb");
+	fpIcon	= fopen(szIconFile, "wb");
 
-	char* pszFN = NULL;
-	pszFN = (char*)malloc(sizeof(char) * nFNLen);
-	memcpy(pszFN, pkglst[nSelectedPKG]->title, nFNLen);
-
-	// Create directory structure
-	char szPKGDir[256] = "";
-	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
-
-	// Create files
-	FILE* fpFile[4];
-	char szFile[4][256];
-
-	char szPDB[4][256] = {
-		"d0.pdb", 
-		"d1.pdb", 
-		"f0.pdb", 
-		"ICON_FILE"
-	};
-
-	for(int x = 0; x < 4; x++) 
+	if(!fpPDB || !fpIcon) 
 	{
-		sprintf(szFile[x], "%s/%s", szPKGDir, szPDB[x]);
-		fpFile[x] = fopen(szFile[x], "wb");
-	}
-
-	if(!fpFile[0] || !fpFile[1] || !fpFile[2] || !fpFile[3]) {		
+		// failed to create files
 		return 0;
 	}
 
-	// Prepare data for [d0.pdb] & [d1.pdb]
+	// ------------------------------------------------------------------------
+	// write - d0.pdb
+	//
+
+	// 00000000 - Header
+	char header[4] = {
+		0x00, 0x00, 0x00, 0x00
+	};
+	fwrite(header, 4, 1, fpPDB);
+
+	// 00000065 - Unknown
+	char unknown1[16] = {
+		0x00, 0x00, 0x00, 0x65,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x00
+	};
+	fwrite(unknown1, 16, 1, fpPDB);
+
+	// 0000006B - Unknown
+	char unknown2[16] = {
+		0x00, 0x00, 0x00, 0x6B,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x03
+	};
+	fwrite(unknown2, 16, 1, fpPDB);
+
+	// 00000068 - Status of download
+	char dl_status[16] = {
+		0x00, 0x00, 0x00, 0x68,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x04,
+		0x00, 0x00, 0x00, 0x00
+	};
+	fwrite(dl_status, 16, 1, fpPDB);
+
+	// 000000D0 - Download current size (in bytes)
+	char dl_progress[12] = {
+		0x00, 0x00, 0x00, 0xD0,
+		0x00, 0x00, 0x00, 0x08,
+		0x00, 0x00, 0x00, 0x08
+	};
+	fwrite(dl_progress, 12, 1, fpPDB);
+	fwrite((char*) &pkglst[nSelectedPKG]->nSize, 8, 1, fpPDB);
+
+	// 000000CE - Download expected size (in bytes)
+	char dl_size[12] = {
+		0x00, 0x00, 0x00, 0xCE,
+		0x00, 0x00, 0x00, 0x08,
+		0x00, 0x00, 0x00, 0x08
+	};
+	fwrite(dl_size, 12, 1, fpPDB);
+	fwrite((char*) &pkglst[nSelectedPKG]->nSize, 8, 1, fpPDB);
+
+	// 00000069 - Display title
+	char title[4] = {
+		0x00, 0x00, 0x00, 0x69
+	};
+	fwrite(title, 4, 1, fpPDB);
 	
-	unsigned char sizeData[5];
-	bytes_from_hex_string(sizeData, pkglst[nSelectedPKG]->szSize);
-
-	// PKG size 1st entry
-	for(int x = 0; x < 5; x++) {
-		d0pdb_ttxt_hdr[0x70 + x] = sizeData[x];
-	}
-
-	// PKG size 2nd entry
-	for(int x = 0; x < 5; x++) {
-		d0pdb_ttxt_hdr[0x84 + x] = sizeData[x];
-	}
-
-	// TITLE string length entry
-	d0pdb_ttxt_hdr[0x94]	= nFNLen + 0x0D + 1;
-	d0pdb_ttxt_hdr[0x94-4]	= nFNLen + 0x0D + 1;
+	char title_str[256] = "";
+	sprintf(title_str, "\xE2\x98\x85 Install \x22%s\x22", pkglst[nSelectedPKG]->title);
 	
-	// Filename string length entry
-	d0pdb_fn_hdr[0x0B]		= nFNLen;
-	d0pdb_fn_hdr[0x0B-4]		= nFNLen;
+	unsigned int title_len = strlen(title_str) + 1;
+	fwrite((char*) &title_len, 4, 1, fpPDB);
+	fwrite((char*) &title_len, 4, 1, fpPDB);
+	fwrite(title_str, title_len, 1, fpPDB);
+
+	// 000000CB - PKG file name
+	char filename[4] = {
+		0x00, 0x00, 0x00, 0xCB
+	};
+	fwrite(filename, 4, 1, fpPDB);
 	
-	// [d0.pdb] & [d1.pdb] TITLE header
-	char *title_hdr = NULL;
-	title_hdr = (char*)malloc(sizeof(char) * 0x95);
-	memcpy(title_hdr, d0pdb_ttxt_hdr, 0x95);
+	unsigned int filename_len = strlen(pkglst[nSelectedPKG]->title) + 1;
+	fwrite((char*) &filename_len, 4, 1, fpPDB);
+	fwrite((char*) &filename_len, 4, 1, fpPDB);
+	fwrite(pkglst[nSelectedPKG]->title, filename_len, 1, fpPDB);
 
-	// [d0.pdb] & [d1.pdb] TITLE starting text
-	char *title_txt1 = NULL;
-	title_txt1 = (char*)malloc(sizeof(char) * 0x0D);
-	memcpy(title_txt1, d0pdb_ttxt1, 0x0D);
+	// 0000006A - Icon location / path (PNG w/o extension) 
+	char iconpath[4] ={
+		0x00, 0x00, 0x00, 0x6A
+	};
+	fwrite(iconpath, 4, 1, fpPDB);
 
-	// [d0.pdb] & [d1.pdb] TITLE ending text
-	char *title_txt2 = NULL;
-	title_txt2 = (char*)malloc(sizeof(char) * 0x02);
-	memcpy(title_txt2, d0pdb_ttxt2, 0x02);
+	unsigned int iconpath_len = strlen(szIconFile) + 1;
+	fwrite((char*) &iconpath_len, 4, 1, fpPDB);
+	fwrite((char*) &iconpath_len, 4, 1, fpPDB);
+	fwrite(szIconFile, iconpath_len, 1, fpPDB);
 
-	// [d0.pdb] & [d1.pdb] FILENAME header
-	char *filename_hdr = NULL;
-	filename_hdr = (char*)malloc(sizeof(char) * 0x0C);
-	memcpy(filename_hdr, d0pdb_fn_hdr, 0x0C);
+	fclose(fpPDB);
 
-	// [d0.pdb] ICON_FILE path d0.pdb header
-	char *iconpath_hdr = NULL;
-	iconpath_hdr = (char*)malloc(sizeof(char) * 0x26);
-	memcpy(iconpath_hdr, d0pdb_iconpath_hdr, 0x26);
+	// ------------------------------------------------------------------------
+	// write - ICON_FILE
+	//
 
-	// [d1.pdb][1st] ICON_FILE path header
-	char *iconpath_d1_hdr = NULL;
-	iconpath_d1_hdr = (char*)malloc(sizeof(char) * 0x26);
-	memcpy(iconpath_d1_hdr, d1pdb_iconpath_hdr1, 0x26);
+	fwrite(iconfile_data, 0x1A0CF, 1, fpIcon);
 
-	// [d1.pdb][2nd] ICON_FILE path header
-	char *iconpath_d1_hdr2 = NULL;
-	iconpath_d1_hdr2 = (char*)malloc(sizeof(char) * 0x0C);
-	memcpy(iconpath_d1_hdr2, d1pdb_iconpath_hdr2, 0x0C);
-
-	// [d0.pdb] & [d1.pdb] ICON_FILE path string
-	char szIconPath[0x2A] = "";
-	sprintf(szIconPath, "/dev_hdd0/vsh/game_pkg/%d/ICON_FILE\0", pkglst[nSelectedPKG]->nPKGID);
-	szIconPath[0x2A] = 0;
-
-	// =========================================================
-	// WRITE --> d0.pdb
-	// =========================================================
-
-	// write header + length of TITLE
-	fwrite(title_hdr, sizeof(char), 0x95, fpFile[0]);				
-
-	// write TITLE + NULL char
-	fwrite(title_txt1, sizeof(char), 0x0D, fpFile[0]);
-	fwrite(pkglst[nSelectedPKG]->title, sizeof(char), nFNLen-1, fpFile[0]);
-	fwrite(title_txt2, sizeof(char), 0x02, fpFile[0]);
-
-	// write header + length of FILENAME
-	fwrite(filename_hdr, sizeof(char), 0x0C, fpFile[0]);
-
-	// write FILENAME + NULL char
-	fwrite(pkglst[nSelectedPKG]->title, sizeof(char), nFNLen, fpFile[0]);
-
-	// write header + length of ICON path
-	fwrite(iconpath_hdr, sizeof(char), 0x26, fpFile[0]);
-
-	// write ICON path + NULL char
-	fwrite(szIconPath, sizeof(char), 0x2A, fpFile[0]);
-
-	// =========================================================
-	// WRITE --> d1.pdb
-	// =========================================================
-
-	// write TITLE segment header + length of string
-	fwrite(title_hdr, sizeof(char), 0x95, fpFile[1]);				
-
-	// write TITLE segment
-	fwrite(title_txt1, sizeof(char), 0x0D, fpFile[1]);
-	fwrite(pkglst[nSelectedPKG]->title, sizeof(char), nFNLen-1, fpFile[1]);
-	fwrite(title_txt2, sizeof(char), 0x02, fpFile[1]);
-
-	// write FILENAME segment header + length of string
-	fwrite(filename_hdr, sizeof(char), 0x0C, fpFile[1]);
-
-	// write FILENAME + NULL char
-	fwrite(pkglst[nSelectedPKG]->title, sizeof(char), nFNLen, fpFile[1]);
-
-	// [1st] write ICON_FILE path segment header + length of string
-	fwrite(iconpath_d1_hdr, sizeof(char), 0x26, fpFile[1]);
-
-	// [1st] write ICON_FILE path + NULL char
-	fwrite(szIconPath, sizeof(char), 0x2A, fpFile[1]);
-
-	// [2nd] write ICON_FILE path segment header + length of string
-	fwrite(iconpath_d1_hdr2, sizeof(char), 0x0C, fpFile[1]);
-
-	// [2nd] write ICON path + NULL char
-	fwrite(szIconPath, sizeof(char), 0x2A, fpFile[1]);
-
-	// =========================================================
-	// WRITE --> ICON_FILE
-	// =========================================================
-
-	fwrite(iconfile_data, sizeof(char), 106703, fpFile[3]);
-
-	// cleanup
-	fclose(fpFile[0]);
-	fclose(fpFile[1]);
-	fclose(fpFile[2]);
-	fclose(fpFile[3]);
+	fclose(fpIcon);
 
 	return 1;
 }
 
-void thread_FileCopy(uint64_t arg)
+#define BUFF_SIZE	0x300000 // 3MB
+
+void thread_FileCopy(uint64_t /*arg*/)
 {	
 	gamePKG->nCopyStatus = 1;
 
 	FILE *filer, *filew;
-	int numr, numw;
-	char buffer[2352]; // 1 sector as in CD-ROM
+	int numr, numw;	
+	char *buffer;
+
+	buffer = (char*)malloc(sizeof(char) * BUFF_SIZE);
+	memset(buffer, 0, sizeof(char) * BUFF_SIZE);
 
 	filer = fopen(gamePKG->szFileIn,"rb");
 	filew = fopen(gamePKG->szFileOut,"wb");
@@ -473,18 +705,17 @@ void thread_FileCopy(uint64_t arg)
 
 		while(feof(filer) == 0)
 		{
-			//if(gamePKG->bCancelCopy) 
-			//{
-				//...
-			//}
-
-			if((numr = fread(buffer, 1, 2352, filer)) != 2352) {
+			if((numr = fread(buffer, 1, BUFF_SIZE, filer)) != BUFF_SIZE) 
+			{
 				if(ferror(filer) != 0) 
 				{
 					bCopyError = true;
 					break;
 				}
-				else if(feof(filer) != 0);
+				else if(feof(filer) != 0)
+				{
+					// ...
+				}
 			}
 			if((numw = fwrite(buffer, 1, numr, filew)) != numr) 
 			{
@@ -499,18 +730,31 @@ void thread_FileCopy(uint64_t arg)
 		if(bCopyError)
 		{
 			cellFsUnlink(gamePKG->szFileOut); // delete file
+
 			gamePKG->nCopyStatus = 10;
+			sys_ppu_thread_exit(0);
+			return;
 		}
 
 	} else {
+
+		if(buffer) free(buffer);
+		buffer = NULL;
+
 		if(filer) fclose(filer);
-		if(filew) {
+		if(filew) 
+		{
 			fclose(filew);		
 			cellFsUnlink(gamePKG->szFileOut); // delete file
 		}
+
 		gamePKG->nCopyStatus = 10;
 		sys_ppu_thread_exit(0);
+		return;
 	}
+	
+	if(buffer) free(buffer);
+	buffer = NULL;
 
 	gamePKG->nCopyStatus = 2;
 	sys_ppu_thread_exit(0);
@@ -518,17 +762,19 @@ void thread_FileCopy(uint64_t arg)
 
 int c_gamePKG::QueuePKG()
 {
-	char szPKGDir[256] = "";
-	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
+	char pszPKGDir[256] ="";
+	sprintf(pszPKGDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
 
-	CellFsErrno ret = cellFsMkdir(szPKGDir, CELL_FS_DEFAULT_CREATE_MODE_1); // perms 700
-	
+	CellFsErrno ret;
+	ret = cellFsMkdir("/dev_hdd0/vsh/game_pkg", CELL_FS_S_IFDIR | 0777);
+	ret = cellFsMkdir(pszPKGDir, CELL_FS_S_IFDIR | 0777);
+
 	if(ret != CELL_FS_SUCCEEDED)
 	{
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
 			"[Error] Could not create the required directory on HDD.", 
-			callbackfunction, NULL, NULL
+			DlgCallbackFunction, NULL, NULL
 		);
 		pkglst[nSelectedPKG]->bQueued = false;
 		return 0;
@@ -539,23 +785,26 @@ int c_gamePKG::QueuePKG()
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL, 
 			"[Error] Could not create / write needed files to HDD.", 
-			callbackfunction, NULL, NULL
+			DlgCallbackFunction, NULL, NULL
 		);
 		pkglst[nSelectedPKG]->bQueued = false;
 		return 0;
 	}
 
 	sprintf(szFileIn, "%s", pkglst[nSelectedPKG]->path); 
-	sprintf(szFileOut, "%s/%s", szPKGDir, pkglst[nSelectedPKG]->title);	
+	sprintf(szFileOut, "%s/%s", pszPKGDir, pkglst[nSelectedPKG]->title);	
 
-	sys_ppu_thread_t	id;
-	uint64_t			thread_arg		= 0x1337;
-	uint64_t			priority		= 1500;
-	size_t				stack_size		= 0x1000;
-	char				thread_name[]	= "File Copy";
+	sys_ppu_thread_t thread_id;
+
+	sys_ppu_thread_create(
+		&thread_id,
+		thread_FileCopy,				// callback function
+		0x1337,							// arg
+		1500,							// priority
+		0x1000,							// stack size
+		SYS_PPU_THREAD_CREATE_JOINABLE, //
+		"File Copy"						// name
+	);
 	
-	int s;
-	s = sys_ppu_thread_create(&id, thread_FileCopy, thread_arg, priority, stack_size, SYS_PPU_THREAD_CREATE_JOINABLE, thread_name);
-
 	return 1;
 }
