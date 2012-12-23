@@ -63,6 +63,7 @@ Changelog:
 1.1
 
 - Improved application performance by cleaning up, organizing and simplifying lot of code.
+- Added scan of PKG files on root of USB devices as well (from "/dev_usb000/" to "/dev_usb003/")
 - Copy of PKG files is faster now.
 - Rewrote module to write the PDB & Icon files.
 - Other source code improvements.
