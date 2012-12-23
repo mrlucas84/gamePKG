@@ -24,12 +24,16 @@ for PKG files:
 
 - /dev_hdd0/pkg/
 - /dev_hdd0/package/
+- /dev_usb000/
 - /dev_usb000/pkg/
 - /dev_usb000/package/
+- /dev_usb001/
 - /dev_usb001/pkg/
 - /dev_usb001/package/
+- /dev_usb002/
 - /dev_usb002/pkg/
 - /dev_usb002/package/
+- /dev_usb003/
 - /dev_usb003/pkg/
 - /dev_usb003/package/
 
