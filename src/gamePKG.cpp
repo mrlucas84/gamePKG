@@ -19,6 +19,24 @@
 		"d0.pdb"
 		"ICON_FILE"
 
+---------------------------------------------------------------------
+
+Tested on: 
+	
+	Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
+
+TODO:
+
+ *	- implement easy thread creation class
+	- put delete operations into separate thread
+
+	- implement 'qsort' module to sort PKG list
+
+	- support re-scaning devices for new PKG files
+WIP - verify HDD for previously queued files
+	- display a Progress bar
+	- support split PKG files
+
 */
 #include "main.h"
 #include "misc.h"
@@ -53,38 +71,14 @@ c_gamePKG::c_gamePKG()
 	nPKGListTop		= 0;
 	nTotalPKG		= 0;
 	bDeleting		= false;
-	nCopyStatus		= 0;
-	nPKGID			= 80000000;
-}
-
-c_gamePKG::~c_gamePKG()
-{
-	// ...
-	if(nTotalPKG > 0)
-	{
-		for(int nPKG = 0; nPKG < nTotalPKG; nPKG++)
-		{
-			if(pkglst[nPKG]) 
-			{
-				delete [] pkglst[nPKG];
-				pkglst[nPKG] = NULL;
-			}
-		}
-		nTotalPKG = 0;
-	}
-	nSelectedPKG	= 0;
-	nPKGListTop		= 0;
-	bDeleting		= false;
-	nCopyStatus		= 0;
+	nStatus			= 0;
 	nPKGID			= 80000000;
 }
 
 void c_gamePKG::Frame()
 {
 	DisplayFrame();
-
 	InputFrame();
-
 	DlgDisplayFrame();
 }
 
@@ -219,7 +213,9 @@ void c_gamePKG::InputFrame()
 {
 	static int nSelInputFrame = 0;
 
+	// ------------------------------------------------------
 	// Navigation UP/DOWN with no delay
+
 	if( !app.mIsUpPressed && app.upPressedNow)
 	{
 		if(nSelectedPKG > 0 && nSelectedPKG <= nTotalPKG) 
@@ -236,9 +232,11 @@ void c_gamePKG::InputFrame()
 			nSelectedPKG++;
 		}
 		nSelInputFrame = 0;
-	}	
+	}
 	
+	// ------------------------------------------------------
 	// Navigation UP/DOWN with delay
+	
 	if(((app.mFrame + nSelInputFrame) - app.mFrame) == 5)
 	{
 		if( app.mIsUpPressed && app.upPressedNow)
@@ -257,14 +255,20 @@ void c_gamePKG::InputFrame()
 		}
 		nSelInputFrame = 0;
 	}
+
 	nSelInputFrame++;
 
-	if ( !app.mIsCirclePressed && app.circlePressedNow ) 
+	// ------------------------------------------------------
+	// [ ] - SQUARE
+
+	if(!app.mIsSquarePressed && app.squarePressedNow)
 	{
-		app.onShutdown();
-		exit(0);
+		RemoveFromQueue();
 	}
 
+	// ------------------------------------------------------
+	// (X) - CROSS
+	
 	if ( !app.mIsCrossPressed && app.crossPressedNow ) 
 	{
 		if(pkglst[nSelectedPKG]->bQueued) 
@@ -278,19 +282,30 @@ void c_gamePKG::InputFrame()
 		} else {
 			QueuePKG();
 		}
+	}	
+	
+	// ------------------------------------------------------
+	// (O) - CIRCLE
+	
+	if (!app.mIsCirclePressed && app.circlePressedNow) 
+	{
+		app.onShutdown();
+		exit(0);
 	}
+
+
 }
 
 void c_gamePKG::DlgDisplayFrame()
 {
 	// COPY STARTED
-	if(nCopyStatus == 1)
+	if(nStatus == STATUS_COPY_START)
 	{
 		char szMsg[256] = "";
 		sprintf(
 			szMsg, 
 			"Processing \"%s\" [%.2f %s]...\n\nPlease wait, this could take a while depending on the size of the PKG. Do not turn off the system.", 
-			szFileIn,
+			pkglst[nSelectedPKG]->path,
 			GetByteUnit(pkglst[nSelectedPKG]->nSize), GetByteUnitStr(pkglst[nSelectedPKG]->nSize)
 		);
 
@@ -299,17 +314,15 @@ void c_gamePKG::DlgDisplayFrame()
 			szMsg,
 			DlgCallbackFunction, NULL, NULL
 		);
-
-		nCopyStatus = 0; // avoid loop
 	}
 
 	// COPY [OK]
-	if(nCopyStatus == 2) 
+	if(nStatus == STATUS_COPY_OK) 
 	{
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully added \"%s\" to queue.", szFileIn);
+		sprintf(szMsg, "Successfully added \"%s\" to queue.", pkglst[nSelectedPKG]->path);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
@@ -318,16 +331,15 @@ void c_gamePKG::DlgDisplayFrame()
 		);
 
 		pkglst[nSelectedPKG]->bQueued = true;
-		nCopyStatus = 0;
 	}
 
 	// COPY [ERROR]
-	if(nCopyStatus == 10) 
+	if(nStatus == STATUS_COPY_ERROR) 
 	{
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Error while processing \"%s\".", szFileIn);
+		sprintf(szMsg, "Error while processing \"%s\".", pkglst[nSelectedPKG]->path);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF, 
@@ -339,75 +351,117 @@ void c_gamePKG::DlgDisplayFrame()
 
 		DeletePDBFiles(pkglst[nSelectedPKG]->nPKGID);
 		RemovePKGDir(pkglst[nSelectedPKG]->nPKGID);
-
-		nCopyStatus = 0;
 	}
+
+	if(nStatus == STATUS_RM_QUEUE_START)
+	{
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON,
+			"Removing selected PKG from queue, please wait. Do not turn off the system.",
+			DlgCallbackFunction, NULL, NULL
+		);
+	}
+
+	if(nStatus == STATUS_RM_QUEUE_OK)
+	{
+		cellMsgDialogAbort();
+
+		char szMsg[256] = "";
+		sprintf(szMsg, "Successfully removed \"%s\" from queue.", pkglst[nSelectedPKG]->title);
+
+		::cellMsgDialogOpen2(
+			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
+			szMsg, 
+			DlgCallbackFunction, NULL, NULL
+		);
+	}
+
+	nStatus = STATUS_NORMAL;
 }
 
-int c_gamePKG::ParsePKGList(const char* szDevice)
+int c_gamePKG::GetPKGDirId()
 {
 	int fd;
-	CellFsDirent dir;
-	
-	char szDirectory[256] = "";
-	sprintf(szDirectory, "%s", szDevice);
 
+	char szDirectory[256] = "";
+	sprintf(szDirectory, "/dev_hdd0/vsh/game_pkg/%d", nPKGID);
+
+	if(cellFsOpendir(szDirectory, &fd) == CELL_FS_SUCCEEDED)
+	{
+		// there is already a directory with the ID, try again...
+		cellFsClosedir(fd);
+
+		nPKGID++;
+		return 0;
+	}
+
+	return nPKGID;
+}
+
+int c_gamePKG::ParsePKGList(char* szDirectory)
+{
+	int fd;
+	CellFsDirent dirEntry;
+	
 	CellFsErrno res = cellFsOpendir(szDirectory, &fd);
 	
 	if (res == CELL_FS_SUCCEEDED) 
-	{				
+	{
 		uint64_t nread;
 
-		while (::cellFsReaddir(fd, &dir, &nread) == CELL_FS_SUCCEEDED) 
+		while(cellFsReaddir(fd, &dirEntry, &nread) == CELL_FS_SUCCEEDED) 
 		{
 			if(nread == 0) break;
 
-			if (dir.d_type == CELL_FS_TYPE_DIRECTORY)
+			if (dirEntry.d_type == CELL_FS_TYPE_DIRECTORY)
 			{
 				// DIRECTORY
 			} else {
 				
-				if(dir.d_type != CELL_FS_TYPE_REGULAR) break;
+				if(dirEntry.d_type != CELL_FS_TYPE_REGULAR) break;
 				
 				// FILE
 
-				int namelen = strlen(dir.d_name);
-				if (namelen < 5) continue;
+				int nNameLen = strlen(dirEntry.d_name);
+				if (nNameLen < 5) continue;
 				
 				// PKG
-				int nFNLen = strlen(dir.d_name) + 1; // filename length
+				char* pszFilename = NULL;
+				pszFilename = (char*)malloc(sizeof(char) * nNameLen);
+				memcpy(pszFilename, dirEntry.d_name, nNameLen);
 
-				char* pszFN = NULL;
-				pszFN = (char*)malloc(sizeof(char) * nFNLen);
-				memcpy(pszFN, dir.d_name, nFNLen);
-
-				if(strstr(toLowerCase(pszFN), ".pkg")) 
+				if(strstr(toLowerCase(pszFilename), ".pkg")) 
 				{
-
 					// Add entry values to game list
 					pkglst[nTotalPKG] = new c_pkglist();
 				
-					if(!strncmp(szDevice, "/dev_hdd0", strlen("/dev_hdd0")))
+					if(strstr(szDirectory, "/dev_hdd0"))
 					{
 						pkglst[nTotalPKG]->bInternal = true;
 					}
 
 					// PKG Path
-					sprintf(pkglst[nTotalPKG]->path, "%s/%s", szDevice, dir.d_name);				
+					if(szDirectory[strlen(szDirectory)-1] == '/')
+					{
+						szDirectory[strlen(szDirectory)-1] = 0;
+					}
+
+					sprintf(pkglst[nTotalPKG]->path, "%s/%s", szDirectory, dirEntry.d_name);				
 					
 					// PKG Filename
-					sprintf(pkglst[nTotalPKG]->title, "%s", dir.d_name);
-					pkglst[nTotalPKG]->title[63] = 0;
+					sprintf(pkglst[nTotalPKG]->title, "%s", dirEntry.d_name);
 
 					// PKG directory ID (ex. 80000000)
-					pkglst[nTotalPKG]->nPKGID = nPKGID;
+					while(pkglst[nTotalPKG]->nPKGID == 0)
+					{
+						pkglst[nTotalPKG]->nPKGID = GetPKGDirId();
+					}
 
 					// PKG Size in bytes
 					pkglst[nTotalPKG]->nSize = GetPKGSize(pkglst[nTotalPKG]->path);
 					
 					nTotalPKG++;
 					nPKGID++;
-
 				}
 			}
 		}
@@ -474,39 +528,34 @@ void c_gamePKG::RefreshPKGList()
 		nTotalPKG = 0;
 	}
 
-	ParsePKGList("/dev_hdd0/pkg");
-	ParsePKGList("/dev_hdd0/package");
+	char szDir[][256] = { 
+		"", "pkg", "package", "packages" 
+	};
 
-	ParsePKGList("/dev_usb000");
-	ParsePKGList("/dev_usb000/pkg");
-	ParsePKGList("/dev_usb000/package");
+	char szDevice[][256] = { 
+		"/dev_hdd0",
+		"/dev_usb000", "/dev_usb001", "/dev_usb002", "/dev_usb003",
+		"/dev_cf",
+		"/dev_sd",
+		"/dev_ms"
+	};
 
-	ParsePKGList("/dev_usb001");
-	ParsePKGList("/dev_usb001/pkg");
-	ParsePKGList("/dev_usb001/package");
-
-	ParsePKGList("/dev_usb002");
-	ParsePKGList("/dev_usb002/pkg");
-	ParsePKGList("/dev_usb002/package");
-
-	ParsePKGList("/dev_usb003");
-	ParsePKGList("/dev_usb003/pkg");
-	ParsePKGList("/dev_usb003/package");
-
-	ParsePKGList("/dev_usb004");
-	ParsePKGList("/dev_usb004/pkg");
-	ParsePKGList("/dev_usb004/package");
-
-	ParsePKGList("/dev_sd");
-	ParsePKGList("/dev_sd/pkg");
-	ParsePKGList("/dev_sd/package");
-
-	// todo: add micro sd support
-
+	for(unsigned int nDev = 0; nDev < (sizeof(szDevice) / 256); nDev++)
+	{
+		for(unsigned int nDir = 0; nDir < (sizeof(szDir) / 256); nDir++)	
+		{
+			char szPath[256] = "";
+			sprintf(szPath, "%s/%s", szDevice[nDev], szDir[nDir]);			
+			ParsePKGList(szPath);
+		}
+	}	
 }
 
 int c_gamePKG::RemovePKGDir(int nId)
 {
+	if(bDeleting) return 0;
+	bDeleting = true;
+
 	char szPKGDir[256] = "";
 	sprintf(szPKGDir, "/dev_hdd0/vsh/game_pkg/%d", nId);
 	
@@ -515,21 +564,60 @@ int c_gamePKG::RemovePKGDir(int nId)
 	if(ret != CELL_FS_SUCCEEDED) 
 	{
 		// couldn't delete the directory...
+		bDeleting = false;
 		return 0;
 	}
+
+	bDeleting = false;
+
+	return 1;
+}
+
+int c_gamePKG::RemoveAllDirFiles(char* szDirectory)
+{
+	int fd;
+	CellFsDirent dirEntry;
+	
+	CellFsErrno res = cellFsOpendir(szDirectory, &fd);
+	
+	if (res == CELL_FS_SUCCEEDED) 
+	{
+		uint64_t nread;
+
+		while(cellFsReaddir(fd, &dirEntry, &nread) == CELL_FS_SUCCEEDED) 
+		{
+			if(nread == 0) break;
+
+			if (dirEntry.d_type == CELL_FS_TYPE_DIRECTORY)
+			{
+				// DIRECTORY
+			} else {
+				
+				if(dirEntry.d_type != CELL_FS_TYPE_REGULAR) break;
+				
+				// FILE
+				char szFile[256] = "";
+				sprintf(szFile, "%s/%s", szDirectory, dirEntry.d_name);
+
+				cellFsUnlink(szFile);
+			}
+		}
+	}
+	cellFsClosedir(fd);
 
 	return 1;
 }
 
 int c_gamePKG::DeletePDBFiles(int nId)
 {
+	if(bDeleting) return 0;
 	bDeleting = true;
 
 	char szPDB[256] = "";
 	char szIconFile[256] = "";
 	sprintf(szPDB, "/dev_hdd0/vsh/game_pkg/%d/d0.pdb", nId);
 	sprintf(szIconFile, "/dev_hdd0/vsh/game_pkg/%d/ICON_FILE", nId);
-
+	
 	FILE *fpPDB, *fpIcon;
 	
 	if((fpPDB = fopen(szPDB, "r")))
@@ -549,6 +637,45 @@ int c_gamePKG::DeletePDBFiles(int nId)
 	bDeleting = false;
 	
 	return 1;
+}
+
+void c_gamePKG::RemovePKG(int nId)
+{
+	if(bDeleting) return;
+	bDeleting = true;
+
+	char szPKG[256] = "";
+	sprintf(szPKG, "/dev_hdd0/vsh/game_pkg/%d/%s", nId, pkglst[nSelectedPKG]->title);
+
+	FILE *fpPKG;
+	
+	if((fpPKG = fopen(szPKG, "r")))
+	{
+		fclose(fpPKG);
+		fpPKG = NULL;
+		cellFsUnlink(szPKG);
+	}
+
+	bDeleting = false;
+}
+
+void c_gamePKG::RemoveFromQueue()
+{
+	if(bDeleting || !pkglst[nSelectedPKG]->bQueued) return; // nothing to do here...
+
+	nStatus = STATUS_RM_QUEUE_START;
+
+	pkglst[nSelectedPKG]->bQueued = false;
+	
+	char szDir[256] = "";
+	sprintf(szDir, "/dev_hdd0/vsh/game_pkg/%d", pkglst[nSelectedPKG]->nPKGID);
+
+	RemoveAllDirFiles(szDir);
+	RemovePKGDir(pkglst[nSelectedPKG]->nPKGID);
+
+	// todo: add error checking here...
+
+	nStatus = STATUS_RM_QUEUE_OK;
 }
 
 uint64_t c_gamePKG::GetPKGSize(char* szFilePath)
@@ -694,17 +821,24 @@ int c_gamePKG::CreatePDBFiles()
 
 void thread_FileCopy(uint64_t /*arg*/)
 {	
-	gamePKG->nCopyStatus = 1;
+	gamePKG->nStatus = STATUS_COPY_START;
 
 	FILE *filer, *filew;
 	int numr, numw;	
 	char *buffer;
 
 	buffer = (char*)malloc(sizeof(char) * BUFF_SIZE);
-	memset(buffer, 0, sizeof(char) * BUFF_SIZE);
 
-	filer = fopen(gamePKG->szFileIn,"rb");
-	filew = fopen(gamePKG->szFileOut,"wb");
+	filer = fopen(gamePKG->pkglst[gamePKG->nSelectedPKG]->path,"rb");
+
+	char szFileOut[256] ="";
+	sprintf(
+		szFileOut, 
+		"/dev_hdd0/vsh/game_pkg/%d/%s", 
+		gamePKG->pkglst[gamePKG->nSelectedPKG]->nPKGID, 
+		gamePKG->pkglst[gamePKG->nSelectedPKG]->title
+	);
+	filew = fopen(szFileOut, "wb");
 
 	if(filer != NULL && filew != NULL)
 	{
@@ -736,9 +870,9 @@ void thread_FileCopy(uint64_t /*arg*/)
 		
 		if(bCopyError)
 		{
-			cellFsUnlink(gamePKG->szFileOut); // delete file
+			cellFsUnlink(szFileOut); // delete file
 
-			gamePKG->nCopyStatus = 10;
+			gamePKG->nStatus = STATUS_COPY_ERROR;
 			sys_ppu_thread_exit(0);
 			return;
 		}
@@ -752,10 +886,10 @@ void thread_FileCopy(uint64_t /*arg*/)
 		if(filew) 
 		{
 			fclose(filew);		
-			cellFsUnlink(gamePKG->szFileOut); // delete file
+			cellFsUnlink(szFileOut); // delete file
 		}
 
-		gamePKG->nCopyStatus = 10;
+		gamePKG->nStatus = STATUS_COPY_ERROR;
 		sys_ppu_thread_exit(0);
 		return;
 	}
@@ -763,7 +897,7 @@ void thread_FileCopy(uint64_t /*arg*/)
 	if(buffer) free(buffer);
 	buffer = NULL;
 
-	gamePKG->nCopyStatus = 2;
+	gamePKG->nStatus = STATUS_COPY_OK;
 	sys_ppu_thread_exit(0);
 }
 
@@ -797,9 +931,6 @@ int c_gamePKG::QueuePKG()
 		pkglst[nSelectedPKG]->bQueued = false;
 		return 0;
 	}
-
-	sprintf(szFileIn, "%s", pkglst[nSelectedPKG]->path); 
-	sprintf(szFileOut, "%s/%s", pszPKGDir, pkglst[nSelectedPKG]->title);	
 
 	sys_ppu_thread_t thread_id;
 

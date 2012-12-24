@@ -24,19 +24,20 @@
 class CapApp : public FWGLApplication
 {
 public:
+	
 	CapApp();
 
-	bool onInit(int argc, char **argv);
-	void onRender();
-	void onShutdown();
-	bool onUpdate();
+	virtual bool onInit(int argc, char **argv);
+	virtual void onRender();
+	virtual void onShutdown();
+	virtual bool onUpdate();
 
-	void InputFrameStart();
-	void InputFrameEnd();
+	virtual void InputFrameStart();
+	virtual void InputFrameEnd();
 
-	void dbgFontInit();
-	void dbgFontDraw();
-	void dbgFontExit();
+	virtual void dbgFontInit();
+	virtual void dbgFontDraw();
+	virtual void dbgFontExit();
 
 	unsigned int mFrame;
 

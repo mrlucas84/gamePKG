@@ -17,37 +17,47 @@ public:
 		bInternal	= false;
 		bQueued		= false;
 		nSize		= 0;
-		nPKGID		= 80000000; // default
+		nPKGID		= 0;
 	}
 
 	~c_pkglist() { }
 };
 
+#define STATUS_NORMAL			0
+#define STATUS_COPY_START		1
+#define STATUS_COPY_OK			2
+#define STATUS_COPY_ERROR		10
+#define STATUS_RM_QUEUE_START	4
+#define STATUS_RM_QUEUE_OK		5
+
+
 class c_gamePKG 
 {
 public:
 
+	c_gamePKG();
+
 	int		nSelectedPKG;
 	int		nPKGListTop;
-	char	szFileIn[256];
-	char	szFileOut[256];
 	int		nTotalPKG;
-	bool	bDeleting;
-	int		nCopyStatus;
+	bool	bDeleting;	
 	int		nPKGID;
 
+	int		nStatus;
+	
 	c_pkglist* pkglst[9000];
 
-	c_gamePKG();
-	~c_gamePKG();
-
 	int			QueuePKG();
+	void		RemoveFromQueue();
+	void		RemovePKG(int nId);
 	int			CreatePDBFiles();
 	int			DeletePDBFiles(int nId);
+	int			RemoveAllDirFiles(char* szDirectory);
 	int			RemovePKGDir(int nId);
+	int			GetPKGDirId();
 	void		RefreshPKGList();
 	uint64_t	GetPKGSize(char* szFilePath);
-	int			ParsePKGList(const char* szDevice);
+	int			ParsePKGList(char* szDirectory);
 
 	void		Frame();
 	void		DisplayFrame();

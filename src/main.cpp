@@ -1,23 +1,6 @@
 ﻿// ----------------------------------------------------------------------------
 // CaptainCPS-X's gamePKG Tool
 // ----------------------------------------------------------------------------
-/*
-
-Tested on: Rogero CFW 4.30 v2.03
-
-TODO: 
-
-- support re-scaning devices for new PKG files
-- verify HDD for previously queued files
-- display a Progress bar
-- support split PKG files (for now)
-- support removing Queued PKG (for now)
-
-- Clean code
-
-*/
-// ----------------------------------------------------------------------
-
 #include "main.h"
 #include "misc.h"
 #include "gamePKG.h"
@@ -201,8 +184,6 @@ void CapApp::onRender()
 
 void CapApp::onShutdown() 
 {
-	gamePKG->~c_gamePKG();
-
 	FWInputDevice *pPad = FWInput::getDevice(FWInput::DeviceType_Pad, 0);
 
 	if(pPad != NULL)
