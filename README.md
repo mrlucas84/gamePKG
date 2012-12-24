@@ -15,7 +15,7 @@ PKGs without wasting much time.
 Technical Info:
 ----------------------------------------------
 
-Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
+Tested on: Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
 
 Should work on 3.40+ CFW
 
