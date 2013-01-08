@@ -269,7 +269,7 @@ void c_gamePKG::InputFrame()
 	
 	if ( !app.mIsCrossPressed && app.crossPressedNow ) 
 	{
-		if(pkglst[nTotalPKG].bQueued) 
+		if(pkglst[nSelectedPKG].bQueued) 
 		{
 			// already queued...
 			::cellMsgDialogOpen2(
@@ -301,8 +301,9 @@ void c_gamePKG::DlgDisplayFrame()
 		sprintf(
 			szMsg, 
 			"Processing \"%s\" [%.2f %s]...\n\nPlease wait, this could take a while depending on the size of the PKG. Do not turn off the system.", 
-			pkglst[nTotalPKG].path,
-			GetByteUnit(pkglst[nTotalPKG].nSize), GetByteUnitStr(pkglst[nTotalPKG].nSize)
+			pkglst[nSelectedPKG].title,
+			GetByteUnit(pkglst[nSelectedPKG].nSize), 
+			GetByteUnitStr(pkglst[nSelectedPKG].nSize)
 		);
 
 		::cellMsgDialogOpen2(
@@ -318,7 +319,13 @@ void c_gamePKG::DlgDisplayFrame()
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully added \"%s\" to queue.", pkglst[nTotalPKG].path);
+		sprintf(
+			szMsg, 
+			"Successfully added \"%s\" [%.2f %s] to queue.", 
+			pkglst[nSelectedPKG].title,
+			GetByteUnit(pkglst[nSelectedPKG].nSize), 
+			GetByteUnitStr(pkglst[nSelectedPKG].nSize)
+		);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
@@ -326,7 +333,7 @@ void c_gamePKG::DlgDisplayFrame()
 			DlgCallbackFunction, NULL, NULL
 		);
 
-		pkglst[nTotalPKG].bQueued = true;
+		pkglst[nSelectedPKG].bQueued = true;
 	}
 
 	// COPY [ERROR]
@@ -335,7 +342,13 @@ void c_gamePKG::DlgDisplayFrame()
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Error while processing \"%s\".", pkglst[nTotalPKG].path);
+		sprintf(
+			szMsg, 
+			"Error while processing \"%s\" [%.2f %s].", 
+			pkglst[nSelectedPKG].title,
+			GetByteUnit(pkglst[nSelectedPKG].nSize), 
+			GetByteUnitStr(pkglst[nSelectedPKG].nSize)
+		);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF, 
@@ -343,10 +356,10 @@ void c_gamePKG::DlgDisplayFrame()
 			DlgCallbackFunction, NULL, NULL
 		);
 
-		pkglst[nTotalPKG].bQueued = false;
+		pkglst[nSelectedPKG].bQueued = false;
 
-		DeletePDBFiles(pkglst[nTotalPKG].nPKGID);
-		RemovePKGDir(pkglst[nTotalPKG].nPKGID);
+		DeletePDBFiles(pkglst[nSelectedPKG].nPKGID);
+		RemovePKGDir(pkglst[nSelectedPKG].nPKGID);
 	}
 
 	if(nStatus == STATUS_RM_QUEUE_START)
@@ -363,7 +376,13 @@ void c_gamePKG::DlgDisplayFrame()
 		cellMsgDialogAbort();
 
 		char szMsg[256] = "";
-		sprintf(szMsg, "Successfully removed \"%s\" from queue.", pkglst[nTotalPKG].title);
+		sprintf(
+			szMsg, 
+			"Successfully removed \"%s\" [%.2f %s] from queue.", 
+			pkglst[nSelectedPKG].title,
+			GetByteUnit(pkglst[nSelectedPKG].nSize), 
+			GetByteUnitStr(pkglst[nSelectedPKG].nSize)
+		);
 
 		::cellMsgDialogOpen2(
 			CELL_MSGDIALOG_DIALOG_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON, 
