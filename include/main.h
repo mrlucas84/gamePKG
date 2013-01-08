@@ -11,10 +11,13 @@
 #include <sys/ppu_thread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <math.h>
 #include <sysutil/sysutil_msgdialog.h>
 #include <cell/sysmodule.h>
 #include <sys/memory.h>
+
+#include <dirent.h>
 
 #include "psgl/FWGLApplication.h"
 #include "psgl/FWGLGrid.h"

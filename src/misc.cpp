@@ -3,7 +3,26 @@
 // ---------------------------------------------------------------------
 // Misc utility modules
 #include "main.h"
+#include "gamePKG.h"
 #include "misc.h"
+
+// Struct compare function for QSORT
+int _FcCompareStruct(const void *a, const void *b) 
+{ 
+    struct c_pkglist *ia = (struct c_pkglist *)a;
+    struct c_pkglist *ib = (struct c_pkglist *)b;
+
+	return strcmp(toLowerCase(ia->title, 256), toLowerCase(ib->title, 256));
+}
+
+// String compare function for QSORT
+int _FcCompareStr(const void *pStrA, const void *pStrB)
+{
+	const bool bAscending = true;	// Always ascending [left as reference]
+    return bAscending ? 
+		strcmp(*(char**)pStrA, *(char**)pStrB):	// Ascending [Ex. A,B,C]
+		strcmp(*(char**)pStrB, *(char**)pStrA); // Descending [Ex. C,B,A]
+}
 
 #define addch(str, ch)			\
 	str[strlen(str)]	= ch;	\
@@ -12,17 +31,14 @@
 char* GetNumWithCommas(int64_t nNumber) 
 {
 	bool bIsNegative				= false;
-	char szNumber[256]				= "\0";
-	char szFlippedNumber[256]		= "\0";
-	char szCommaFlippedNumber[256]	= "\0";
+	char szNumber[256]				= "";
+	char szFlippedNumber[256]		= "";
+	char szCommaFlippedNumber[256]	= "";
 
 	// Check negative number
 	if(nNumber < 0) {
 		bIsNegative = true;
 	}
-
-	// Avoid memory issues
-	char* szCommaNumber	= (char*)malloc(256 * sizeof(char));
 
 	// Convert integer to string
 	sprintf(szNumber, "%lld", nNumber);	
@@ -34,14 +50,14 @@ char* GetNumWithCommas(int64_t nNumber)
 	}
 
 	// Flip number string
-	for(int nDigit = 0; nDigit < (int)strlen(szNumber); nDigit++) {
+	for(unsigned int nDigit = 0; nDigit < strlen(szNumber); nDigit++) {
 		addch(szFlippedNumber, szNumber[strlen(szNumber)-(nDigit+1)]);
 	}	
 
 	// Add commas each 3 digits
-	int nDigit = 0, nCount = 0;
+	unsigned int nDigit = 0, nCount = 0;
 
-	while(nDigit < (int)strlen(szFlippedNumber))
+	while(nDigit < strlen(szFlippedNumber))
 	{
 		if(nCount == 3) {
 			addch(szCommaFlippedNumber, ',');
@@ -53,14 +69,17 @@ char* GetNumWithCommas(int64_t nNumber)
 		nCount++;
 	}
 	
+	// Avoid memory issues
+	char* szCommaNumber	= (char*)malloc(strlen(szCommaFlippedNumber)+2); // +2 for the '-' and '\0'
+
 	// Flip the new formatted number
-	for(nDigit = 0; nDigit < (int)strlen(szCommaFlippedNumber); nDigit++) {
+	for(nDigit = 0; nDigit < strlen(szCommaFlippedNumber); nDigit++) {
 		addch(szCommaNumber, szCommaFlippedNumber[strlen(szCommaFlippedNumber)-(nDigit+1)]);
 	}
 
 	// Add negative sign if needed
 	if(bIsNegative) {
-		char szNegative[256] = "\0";
+		char szNegative[256] = "";
 		sprintf(szNegative, "-%s", szCommaNumber);
 		strcpy(szCommaNumber, szNegative);
 	}
@@ -68,21 +87,34 @@ char* GetNumWithCommas(int64_t nNumber)
 	return szCommaNumber;
 }
 
-char* toLowerCase(char* str)
+// Simple function to convert a string to lower case
+char* toLowerCase(char* pszStr, size_t nLen)
 {	
-	int differ = 'A'-'a';
-	char ch;
-	int ii = strlen(str);
-	for (int i=0; i <ii;i++)
-	{
-		strncpy(&ch, str+i, 1);
-		if (ch>='A' && ch<='Z')
-		{
-			ch = ch-differ;
-			memcpy(str+i,&ch,1);
-		}
+	char* pszNewStr = NULL; 
+	pszNewStr = (char*)malloc(sizeof(char) * nLen+1);
+	memcpy(pszNewStr, pszStr, nLen);
+	pszNewStr[nLen] = 0; // null-terminated string
+		
+	for(int ch = 0; pszNewStr[ch]; ch++) {
+		pszNewStr[ch] = tolower(pszNewStr[ch]);
 	}
-	return str;
+
+	return pszNewStr;
+}
+
+// Simple function to convert a string to upper case
+char* toUpperCase(char* pszStr, size_t nLen)
+{	
+	char* pszNewStr = NULL; 
+	pszNewStr = (char*)malloc(sizeof(char) * nLen+1);
+	memcpy(pszNewStr, pszStr, nLen);
+	pszNewStr[nLen] = 0; // null-terminated string
+		
+	for(int ch = 0; pszNewStr[ch]; ch++) {
+		pszNewStr[ch] = toupper(pszNewStr[ch]);
+	}
+
+	return pszNewStr;
 }
 
 // lpByteSize / 1,024
@@ -96,46 +128,31 @@ char* toLowerCase(char* str)
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+int64_t _ex(int64_t nNum, int64_t nEx)
+{
+	int64_t nFinalNum = nNum;
+	for(int64_t m = 0; m < nEx-1; m++) {
+		nFinalNum = nFinalNum * nNum;
+	}
+	return nFinalNum;
+}
+
 double GetByteUnit(int64_t nSize) 
 {
-	// TB
-	if(nSize >= (1024LL * 1024LL * 1024LL * 1024LL)) {
-		return CALCTERABYTE(nSize);
-	}
-	// GB
-	if(nSize >= (1024LL * 1024LL * 1024LL)) {
-		return CALCGIGABYTE(nSize);
-	}	
-	// MB
-	if(nSize >= (1024LL * 1024LL)) {
-		return CALCMEGABYTE(nSize);
-	}	
-	// KB
-	if(nSize >= 1024LL) {
-		return CALCKILOBYTE(nSize);
-	}
+	if(nSize >= _ex(1024, 4)) return CALCTERABYTE(nSize);
+	if(nSize >= _ex(1024, 3)) return CALCGIGABYTE(nSize);
+	if(nSize >= _ex(1024, 2)) return CALCMEGABYTE(nSize);
+	if(nSize >= _ex(1024, 1)) return CALCKILOBYTE(nSize);
 	return (double)nSize;
 }
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 const char* GetByteUnitStr(int64_t nSize) 
-{
-	// TB
-	if(nSize >= (1024LL * 1024LL * 1024LL * 1024LL)) {
-		return "TB";
-	}		
-	// GB
-	if(nSize >= (1024LL * 1024LL * 1024LL)) {
-		return "GB";
-	}	
-	// MB
-	if(nSize >= (1024LL * 1024LL)) {
-		return "MB";
-	}	
-	// KB
-	if(nSize >= 1024LL) {
-		return "KB";
-	}
+{	
+	if(nSize >= _ex(1024, 4)) return "TB";
+	if(nSize >= _ex(1024, 3)) return "GB";
+	if(nSize >= _ex(1024, 2)) return "MB";	
+	if(nSize >= _ex(1024, 1)) return "KB";
 	return "Bytes";
 }

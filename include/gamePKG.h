@@ -1,26 +1,14 @@
 // ---------------------------------------------------------------------
 // CaptainCPS-X's gamePKG Tool
 // ---------------------------------------------------------------------
-class c_pkglist
+struct c_pkglist
 {
-public:
-
-	char		path[1024];	// full pkg path
-	char		title[64];	// pkg filename
+	char		path[256];	// full pkg path
+	char		title[256];	// pkg filename
 	bool		bInternal;	// HDD / USB PKG
 	bool		bQueued;	// Queued status
 	uint64_t	nSize;		// size in bytes
-	int			nPKGID;
-
-	c_pkglist() 
-	{
-		bInternal	= false;
-		bQueued		= false;
-		nSize		= 0;
-		nPKGID		= 0;
-	}
-
-	~c_pkglist() { }
+	int			nPKGID;		// Ex. 80000000
 };
 
 #define STATUS_NORMAL			0
@@ -29,7 +17,6 @@ public:
 #define STATUS_COPY_ERROR		10
 #define STATUS_RM_QUEUE_START	4
 #define STATUS_RM_QUEUE_OK		5
-
 
 class c_gamePKG 
 {
@@ -45,7 +32,7 @@ public:
 
 	int		nStatus;
 	
-	c_pkglist* pkglst[9000];
+	c_pkglist	*pkglst;
 
 	int			QueuePKG();
 	void		RemoveFromQueue();

@@ -1,4 +1,4 @@
-gamePKG [by CaptainCPS-X, 2012]
+gamePKG [by CaptainCPS-X, 2012-2013]
 ----------------------------------------------
 
 Information:
@@ -20,34 +20,42 @@ Tested on: Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
 Should work on 3.40+ CFW
 
 The application will scan the following directories
-for PKG files:
+for files with .PKG/.pkg extension :
 
-- /dev_hdd0/pkg/
-- /dev_hdd0/package/
-- /dev_usb000/
-- /dev_usb000/pkg/
-- /dev_usb000/package/
-- /dev_usb001/
-- /dev_usb001/pkg/
-- /dev_usb001/package/
-- /dev_usb002/
-- /dev_usb002/pkg/
-- /dev_usb002/package/
-- /dev_usb003/
-- /dev_usb003/pkg/
-- /dev_usb003/package/
-- /dev_cf/
-- /dev_cf/pkg
-- /dev_cf/package
-- /dev_cf/packages
-- /dev_sd/
-- /dev_sd/pkg
-- /dev_sd/package
-- /dev_sd/packages
-- /dev_ms/
-- /dev_ms/pkg
-- /dev_ms/package
-- /dev_ms/packages
+- /dev_*/
+- /dev_*/PKG
+- /dev_*/PACKAGE
+- /dev_*/PACKAGES
+
+Devices scanned are:
+
+- dev_hdd0 (PS3 Internal HDD)
+- dev_usb000 (External USB)
+- dev_usb001 (External USB)
+- dev_usb002 (External USB)
+- dev_usb003 (External USB)
+- dev_cf (Compact Flash)
+- dev_sd (SD Card)
+- dev_ms (Memory Stick)
+
+PKG SCAN NOTE:
+
+The PS3 system does not have case-sensitive directory 
+name restrictions or duplication restrictions as Windows OS, 
+so if for some reason you have duplicate directories as 
+for example:
+
+- /dev_*/PKG/
+- /dev_*/pkg/
+- /dev_*/Pkg/
+
+The PS3 system will scan the upper-case contents only 
+as top priority. So, it is recommended not to have
+duplicate directories.
+
+I tried to modify the code the most I could, but its just
+something that is not implemented in the standard
+C libraries.
 
 NOTES: 
 -----------------------------------------------
@@ -71,8 +79,9 @@ Usage:
 Changelog:
 ----------------------------------------------
 
-1.1
+1.1 (20130109)
 
+- Implemented PKG list sorting by filename.
 - Added feature to remove previously queued PKG by pressing ([ ]) square.
 - Added scan of PKG files on root of USB devices as well (from "/dev_usb000/" to "/dev_usb003/")
 - Added scan of PKG files on "/dev_cf/..." (compact flash), "/dev_sd/..." (sd card), "/dev_ms/..." (memory stick)
@@ -81,7 +90,7 @@ Changelog:
 - Re-wrote module to write the PDB & Icon files from scratch.
 - Other source code improvements.
 
-1.0
+1.0 (20121220)
 
 - Initial "Test" Release
 
