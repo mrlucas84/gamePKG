@@ -23,7 +23,7 @@
 
 Tested on: 
 	
-	Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
+	Rogero CFW 4.30 (v2.03 & v2.05) @ 1080p resolution [HDMI]
 
 TODO:
 
