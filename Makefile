@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------
 # gamePKG Makefile [by CaptainCPS-X, 2012]
 # -------------------------------------------------------------------
-APP_VER			=1.01
+APP_VER			=1.01A
 DATE 			=$(shell date +"%Y%m%d")
 
 PSN_PKG_NPDRM 	= bin/psn_package_npdrm

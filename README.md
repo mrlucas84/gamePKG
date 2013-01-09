@@ -15,7 +15,7 @@ PKGs without wasting much time.
 Technical Info:
 ----------------------------------------------
 
-Tested on: Rogero CFW 4.30 (v2.03) @ 1080p resolution [HDMI]
+Tested on: Rogero CFW 4.30 (v2.03 & v2.05) @ 1080p resolution [HDMI]
 
 Should work on 3.40+ CFW
 
@@ -23,9 +23,15 @@ The application will scan the following directories
 for files with .PKG/.pkg extension :
 
 - /dev_*/
+- /dev_*/pkg
+- /dev_*/package
+- /dev_*/packages
 - /dev_*/PKG
 - /dev_*/PACKAGE
 - /dev_*/PACKAGES
+- /dev_*/Pkg
+- /dev_*/Package
+- /dev_*/Packages
 
 Devices scanned are:
 
@@ -37,25 +43,6 @@ Devices scanned are:
 - dev_cf (Compact Flash)
 - dev_sd (SD Card)
 - dev_ms (Memory Stick)
-
-PKG SCAN NOTE:
-
-The PS3 system does not have case-sensitive directory 
-name restrictions or duplication restrictions as Windows OS, 
-so if for some reason you have duplicate directories as 
-for example:
-
-- /dev_*/PKG/
-- /dev_*/pkg/
-- /dev_*/Pkg/
-
-The PS3 system will scan the upper-case contents only 
-as top priority. So, it is recommended not to have
-duplicate directories.
-
-I tried to modify the code the most I could, but its just
-something that is not implemented in the standard
-C libraries.
 
 NOTES: 
 -----------------------------------------------
@@ -78,6 +65,24 @@ Usage:
 
 Changelog:
 ----------------------------------------------
+
+1.1A (20130109)
+
+- Re-wrote device and directory scanning code, now it is case-sensitive :)
+- The following directories are valid for PKG file storage:
+* /dev_*/
+* /dev_*/pkg
+* /dev_*/package
+* /dev_*/packages
+* /dev_*/PKG
+* /dev_*/PACKAGE
+* /dev_*/PACKAGES
+* /dev_*/Pkg
+* /dev_*/Package
+* /dev_*/Packages
+
+Note: You can have all those directories at same time, with different PKG files, 
+and they will be properly scanned, not even multiMAN have this implemented :p, LOL.
 
 1.1 (20130109)
 
