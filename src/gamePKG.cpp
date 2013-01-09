@@ -89,7 +89,7 @@ void c_gamePKG::DisplayFrame()
 
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
 	yPos += yPosDiff;	
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, " gamePKG Tool v1.1 - by CaptainCPS-X [2012-2013]");
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, " gamePKG Tool v1.1A - by CaptainCPS-X [2012-2013]");
 	yPos += yPosDiff;
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
 	yPos += yPosDiff;
@@ -413,76 +413,217 @@ int c_gamePKG::GetPKGDirId()
 	return nPKGID;
 }
 
-int c_gamePKG::ParsePKGList(char* szDirectory)
+int c_gamePKG::ParsePKGList()
 {
-	DIR *d = NULL;
+	char szDir[][256] = {
+		"PKG"		, "pkg"		, "Pkg"		,
+		"PACKAGE"	, "package"	, "Package"	,
+		"PACKAGES"	, "packages", "Packages"
+	};
 
-	d = opendir(szDirectory);
+	char szDevice[][256] = { 
+		"/dev_hdd0",
+		"/dev_usb000", "/dev_usb001", "/dev_usb002", "/dev_usb003",
+		"/dev_cf",
+		"/dev_sd",
+		"/dev_ms"
+	};
 
-	if(d != NULL)
+	// Scan each device for directories...
+	for(unsigned int nDev = 0; nDev < (sizeof(szDevice) / 256); nDev++)
 	{
-		dirent *dirEntry;
-
-		while((dirEntry = readdir(d)) != NULL)			
+		int device;
+		
+		// device is mounted
+		if(cellFsOpendir(szDevice[nDev], &device) == CELL_FS_SUCCEEDED) 
 		{
-			if (dirEntry->d_type == DT_DIR)
+			CellFsDirent dirEntry;
+			uint64_t nread = 0;
+
+			// start scanning for directories...
+			while(cellFsReaddir(device, &dirEntry, &nread) == CELL_FS_SUCCEEDED)			
 			{
-				// DIRECTORY
-			} else {
+				if(nread == 0) break;
+
+				// found a directory...
+				if (dirEntry.d_type == CELL_FS_TYPE_DIRECTORY)
+				{					
+					// check if its one of the directories we are looking for...					
+					for(unsigned int nDir = 0; nDir < (sizeof(szDir) / 256); nDir++) 
+					{
+						// if we got a winner, then look for PKG files inside the directory...
+						if(strcmp(dirEntry.d_name, szDir[nDir]) == 0)
+						{
+							// ---
+							int d;
+							char szDirectory[256] = "";
+							sprintf(szDirectory, "%s/%s", szDevice[nDev], szDir[nDir]);
+							
+							if(cellFsOpendir(szDirectory, &d) == CELL_FS_SUCCEEDED)
+							{
+								CellFsDirent dirEntry2;
+
+								uint64_t nread2 = 0;
+
+								while(cellFsReaddir(d, &dirEntry2, &nread2) == CELL_FS_SUCCEEDED)			
+								{
+									if (dirEntry2.d_type == CELL_FS_TYPE_DIRECTORY)
+									{
+										// DIRECTORY
+
+										// we're not looking for directories here...
+									
+									} else {
 				
-				if(dirEntry->d_type != DT_REG) break;
+										if(dirEntry2.d_type != CELL_FS_TYPE_REGULAR) break;
 
-				// FILE
+										// FILE
 
-				int nNameLen = strlen(dirEntry->d_name);
-				if (nNameLen < 5) continue;
+										int nNameLen = strlen(dirEntry2.d_name);
+										if (nNameLen < 5) continue;
 
-				// PKG
-				char* pszFilename = NULL;
-				pszFilename = (char*)malloc(nNameLen+1);
-				memcpy(pszFilename, dirEntry->d_name, nNameLen);
-				pszFilename[nNameLen] = 0;
+										char* pszFilename = NULL;
+										
+										pszFilename = (char*)malloc(nNameLen+1);										
+										memcpy(pszFilename, dirEntry2.d_name, nNameLen);
+										pszFilename[nNameLen] = 0;
 
-				if(NULL != strstr(toLowerCase(pszFilename, strlen(pszFilename)), ".pkg")) 
-				{
-					// Add entry values to game list
+										// Check file extension...
+										if(NULL != strstr(toLowerCase(pszFilename, strlen(pszFilename)), ".pkg")) 
+										{
+											// Add entry values to game list
 
-					if(NULL != strstr(szDirectory, "/dev_hdd0"))
-					{
-						pkglst[nTotalPKG].bInternal = true;
-					}
+											if(NULL != strstr(szDirectory, "/dev_hdd0"))
+											{
+												pkglst[nTotalPKG].bInternal = true;
+											}
 
-					// PKG Path
-					if(szDirectory[strlen(szDirectory)-1] == '/')
-					{
-						szDirectory[strlen(szDirectory)-1] = 0;
-					}
+											// PKG Path
+											if(szDirectory[strlen(szDirectory)-1] == '/')
+											{
+												szDirectory[strlen(szDirectory)-1] = 0;
+											}
 
-					sprintf(pkglst[nTotalPKG].path, "%s/%s", szDirectory, dirEntry->d_name);				
+											sprintf(pkglst[nTotalPKG].path, "%s/%s", szDirectory, dirEntry2.d_name);				
 					
-					// PKG Filename
-					sprintf(pkglst[nTotalPKG].title, "%s", dirEntry->d_name);
+											// PKG Filename
+											sprintf(pkglst[nTotalPKG].title, "%s", dirEntry2.d_name);
 
-					// PKG directory ID (ex. 80000000)
-					while(pkglst[nTotalPKG].nPKGID == 0)
-					{
-						pkglst[nTotalPKG].nPKGID = GetPKGDirId();
+											// PKG directory ID (ex. 80000000)
+											while(pkglst[nTotalPKG].nPKGID == 0)
+											{
+												pkglst[nTotalPKG].nPKGID = GetPKGDirId();
+											}
+
+											// PKG Size in bytes
+											pkglst[nTotalPKG].nSize = GetPKGSize(pkglst[nTotalPKG].path);
+					
+											nTotalPKG++;
+											nPKGID++;
+										}
+
+										if(pszFilename) {
+											free(pszFilename);
+											pszFilename = NULL;
+										}
+									}
+								}
+								cellFsClosedir(d);
+								d = NULL;
+							}
+							// ---
+						}
 					}
 
-					// PKG Size in bytes
-					pkglst[nTotalPKG].nSize = GetPKGSize(pkglst[nTotalPKG].path);
-					
-					nTotalPKG++;
-					nPKGID++;
-				}
-
-				if(pszFilename) {
-					free(pszFilename);
-					pszFilename = NULL;
+				} else {
+					// FILE
 				}
 			}
+			cellFsClosedir(device);
+			device = NULL;
 		}
-		closedir(d);
+	}
+
+	// Scan devices again, but only root directory...
+	// Have to do it this way because SONY SDK doesn't have 'telldir()' and 'seekdir()' implemented
+
+	for(unsigned int nDev = 0; nDev < (sizeof(szDevice) / 256); nDev++)
+	{
+		int device;		
+
+		// device is mounted
+		if(cellFsOpendir(szDevice[nDev], &device) == CELL_FS_SUCCEEDED) 
+		{
+			CellFsDirent dirEntry;
+			uint64_t nread = 0;
+
+			// start scanning for directories...
+			while(cellFsReaddir(device, &dirEntry, &nread) == CELL_FS_SUCCEEDED)			
+			{
+				if(nread == 0) break;
+
+				// found a directory...
+				if (dirEntry.d_type == CELL_FS_TYPE_DIRECTORY)
+				{
+					// ...
+				} else {
+	
+					if(dirEntry.d_type != CELL_FS_TYPE_REGULAR) break;
+
+					// FILE
+
+					int nNameLen = strlen(dirEntry.d_name);
+					if (nNameLen < 5) continue;
+
+					char* pszFilename = NULL;
+										
+					pszFilename = (char*)malloc(nNameLen+1);										
+					memcpy(pszFilename, dirEntry.d_name, nNameLen);
+					pszFilename[nNameLen] = 0;
+
+					// Check file extension...
+					if(NULL != strstr(toLowerCase(pszFilename, strlen(pszFilename)), ".pkg")) 
+					{
+						// Add entry values to game list
+
+						if(NULL != strstr(szDevice[nDev], "/dev_hdd0"))
+						{
+							pkglst[nTotalPKG].bInternal = true;
+						}
+
+						// PKG Path
+						if(szDevice[nDev][strlen(szDevice[nDev])-1] == '/')
+						{
+							szDevice[nDev][strlen(szDevice[nDev])-1] = 0;
+						}
+
+						sprintf(pkglst[nTotalPKG].path, "%s/%s", szDevice[nDev], dirEntry.d_name);				
+					
+						// PKG Filename
+						sprintf(pkglst[nTotalPKG].title, "%s", dirEntry.d_name);
+
+						// PKG directory ID (ex. 80000000)
+						while(pkglst[nTotalPKG].nPKGID == 0)
+						{
+							pkglst[nTotalPKG].nPKGID = GetPKGDirId();
+						}
+
+						// PKG Size in bytes
+						pkglst[nTotalPKG].nSize = GetPKGSize(pkglst[nTotalPKG].path);
+					
+						nTotalPKG++;
+						nPKGID++;
+					}
+
+					if(pszFilename) {
+						free(pszFilename);
+						pszFilename = NULL;
+					}
+				}
+			}
+			cellFsClosedir(device);
+			device = NULL;
+		}
 	}
 
 	return 1;
@@ -501,30 +642,7 @@ void c_gamePKG::RefreshPKGList()
 
 	pkglst = (struct c_pkglist*)malloc(sizeof(struct c_pkglist) * 1000);
 
-	char szDir[][256] = { 
-		"", 
-		"PKG",
-		"PACKAGE", 
-		"PACKAGES"
-	};
-
-	char szDevice[][256] = { 
-		"/dev_hdd0",
-		"/dev_usb000", "/dev_usb001", "/dev_usb002", "/dev_usb003",
-		"/dev_cf",
-		"/dev_sd",
-		"/dev_ms"
-	};
-
-	for(unsigned int nDev = 0; nDev < (sizeof(szDevice) / 256); nDev++)
-	{
-		for(unsigned int nDir = 0; nDir < (sizeof(szDir) / 256); nDir++)	
-		{
-			char szPath[256] = "";
-			sprintf(szPath, "%s/%s", szDevice[nDev], szDir[nDir]);			
-			ParsePKGList(szPath);
-		}
-	}
+	ParsePKGList();
 
 	qsort(pkglst, nTotalPKG, sizeof(struct c_pkglist), _FcCompareStruct);
 }

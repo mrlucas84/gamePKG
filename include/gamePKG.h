@@ -44,7 +44,7 @@ public:
 	int			GetPKGDirId();
 	void		RefreshPKGList();
 	uint64_t	GetPKGSize(char* szFilePath);
-	int			ParsePKGList(char* szDirectory);
+	int			ParsePKGList();
 
 	void		Frame();
 	void		DisplayFrame();
