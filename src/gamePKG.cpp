@@ -105,8 +105,8 @@ void c_gamePKG::DisplayFrame()
 	//yPos += yPosDiff;
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -([ ])- TO REMOVE FROM QUEUE");
 	yPos += yPosDiff;
-	//::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -[SELECT]- TO WIPE ALL QUEUES & REFRESH DEVICES");
-	//yPos += yPosDiff;
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "PRESS -[SELECT]- TO LOAD \"multiMAN\"");
+	yPos += yPosDiff;
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
 	yPos += yPosDiff;
 
@@ -293,6 +293,15 @@ void c_gamePKG::InputFrame()
 	{
 		app.onShutdown();
 		exit(0);
+	}
+
+	// ------------------------------------------------------
+	// [SELECT]
+
+	if(!app.mIsSelectPressed && app.selectPressedNow)
+	{
+		app.onShutdown();
+		exitspawn("/dev_hdd0/game/BLES80608/USRDIR/RELOAD.SELF", NULL, NULL, NULL, NULL, 64, SYS_PROCESS_PARAM_STACK_SIZE_MAX);
 	}
 }
 
