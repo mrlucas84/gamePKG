@@ -26,6 +26,19 @@ MAKE_SELF_NPDRM = scetool.exe \
 	--np-real-fname="EBOOT.BIN" \
 	--encrypt
 
+MAKE_RELOAD_FSELF = scetool.exe \
+	--sce-type=SELF \
+	--compress-data=TRUE \
+	--skip-sections=TRUE \
+	--self-ctrl-flags=4000000000000000000000000000000000000000000000000000000000000002 \
+	--key-revision=04 \
+	--self-auth-id=1010000001000003 \
+	--self-app-version=$(SELF_APP_VER) \
+	--self-vendor-id=01000002 \
+	--self-type=APP \
+	--self-fw-version=0003004000000000 \
+	--encrypt
+	
 # -------------------------------------------------------------------
 
 CELL_MK_DIR 	= $(CELL_SDK)/samples/mk
@@ -48,6 +61,7 @@ include $(CELL_MK_DIR)/sdk.target.mk
 
 gamePKG: $(PPU_TARGET)
 	@$(PPU_STRIP) -s $(PPU_TARGET) -o $(OBJS_DIR)/$(PPU_TARGET)
+	@cd bin/ && $(MAKE_RELOAD_FSELF) ../$(OBJS_DIR)/$(PPU_TARGET) ../release/PS3_GAME/USRDIR/RELOAD.SELF && cd ../
 	@rm $(PPU_TARGET)
 	@cd bin/ && $(MAKE_SELF_NPDRM) ../$(OBJS_DIR)/$(PPU_TARGET) ../release/PS3_GAME/USRDIR/EBOOT.BIN && cd ../
 	@$(PSN_PKG_NPDRM) release/package.conf release/PS3_GAME/
