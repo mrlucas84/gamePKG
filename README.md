@@ -51,7 +51,6 @@ remember that these take some time to copy, make sure to
 have at least double the space on the HDD.
 
 - The application doesn't support re-scaning devices for new PKG files (for now)
-- The application doesn't display a Progress bar (for now)
 - The application doesn't support split PKG files (for now)
 - The application doesn't have any special GUI (don't know how to, sorry lol) 
 
@@ -62,12 +61,15 @@ Usage:
 - Press (X) to Queue the selected PKG.
 - Press (O) to Quit and return to XMB.
 - Press ([ ]) to Remove the selected PKG from queue.
+- Press [SELECT] to Load "multiMAN".
 
 Changelog:
 ----------------------------------------------
 
-1.02 (20130110)
+1.02 (20130111)
 
+- Added feature to load multiMAN by pressing [SELECT] button.
+- (Makefile) Added MAKE_RELOAD_FSELF using scetool to create RELOAD.SELF on build, making the application compatible with multiMAN.
 - Implemented progress bar display while processing PKG(s) file(s).
 
 1.01A (20130109)
