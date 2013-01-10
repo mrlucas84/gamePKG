@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------
-# gamePKG Makefile [by CaptainCPS-X, 2012]
+# gamePKG Makefile [by CaptainCPS-X, 2012-2013]
 # -------------------------------------------------------------------
-APP_VER			=1.01A
+APP_VER			=1.02
 DATE 			=$(shell date +"%Y%m%d")
 
 PSN_PKG_NPDRM 	= bin/psn_package_npdrm
 
-SELF_APP_VER	=0001000100000000
+SELF_APP_VER	=0001000200000000
 CONTENT_ID		=GP4PS3-GPKG00123_00-0000000000000000
 MAKE_SELF_NPDRM = scetool.exe \
 	--sce-type=SELF \

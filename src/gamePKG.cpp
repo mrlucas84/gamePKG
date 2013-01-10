@@ -32,10 +32,13 @@ TODO:
 
 	- support re-scaning devices for new PKG files
 WIP - verify HDD for previously queued files
-	- display a Progress bar
 	- support split PKG files
 
 */
+
+// --------------------------------------------------------------------
+#define APP_TITLE " gamePKG Tool v1.02 - by CaptainCPS-X [2012-2013]"
+// --------------------------------------------------------------------
 
 #include "main.h"
 #include "misc.h"
@@ -90,7 +93,7 @@ void c_gamePKG::DisplayFrame()
 
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
 	yPos += yPosDiff;	
-	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, " gamePKG Tool v1.1A - by CaptainCPS-X [2012-2013]");
+	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, APP_TITLE);
 	yPos += yPosDiff;
 	::cellDbgFontPuts(xPos, yPos, nFontSize, 0xffffffff, "----------------------------------------------------------------------" );
 	yPos += yPosDiff;
@@ -308,7 +311,11 @@ void c_gamePKG::DlgDisplayFrame()
 		);
 
 		::cellMsgDialogOpen2(
-			CELL_MSGDIALOG_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON,
+			CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL
+			|CELL_MSGDIALOG_TYPE_BUTTON_TYPE_NONE
+			|CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON
+			|CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_NONE
+			|CELL_MSGDIALOG_TYPE_PROGRESSBAR_SINGLE,
 			szMsg,
 			DlgCallbackFunction, NULL, NULL
 		);
@@ -916,14 +923,25 @@ int c_gamePKG::CreatePDBFiles()
 
 #define BUFF_SIZE	0x300000 // 3MB
 
+double _round(double r) {
+    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
+}
+
 void thread_FileCopy(uint64_t /*arg*/)
 {	
 	gamePKG->nStatus = STATUS_COPY_START;
 
-	FILE *filer, *filew;
-	int numr, numw;	
-	char *buffer;
+	FILE *filer			= NULL;
+	FILE *filew			= NULL;
+	uint64_t numr		= 0;	// elements read
+	uint64_t numw		= 0;	// elements wrote	
+	uint64_t nTotalRead = 0;
+	double nCopyPct		= 0.0f;
+	double nTotDelta	= 0.0f;
+	uint32_t nApproxTotDelta = 0;
 
+
+	char *buffer = NULL;
 	buffer = (char*)malloc(BUFF_SIZE);
 
 	filer = fopen(gamePKG->pkglst[gamePKG->nSelectedPKG].path,"rb");
@@ -943,6 +961,7 @@ void thread_FileCopy(uint64_t /*arg*/)
 
 		while(feof(filer) == 0)
 		{
+			// read
 			if((numr = fread(buffer, 1, BUFF_SIZE, filer)) != BUFF_SIZE) 
 			{
 				if(ferror(filer) != 0) 
@@ -955,12 +974,72 @@ void thread_FileCopy(uint64_t /*arg*/)
 					// ...
 				}
 			}
+			
+			// write
 			if((numw = fwrite(buffer, 1, numr, filew)) != numr) 
 			{
 				bCopyError = true;
 				break;
 			}
+			
+			nTotalRead += numr;			
+
+			nCopyPct = (double)(((double)numr / (double)gamePKG->pkglst[gamePKG->nSelectedPKG].nSize) * 100.0f);
+			double nTotalPct = (double)((double)nTotalRead / (double)gamePKG->pkglst[gamePKG->nSelectedPKG].nSize) * 100.0f;
+
+			nTotDelta += nCopyPct;
+			nApproxTotDelta += (uint32_t)round(nCopyPct);
+
+			if((double)nApproxTotDelta < nTotalPct) 
+			{
+				// Compensate loss of float/double data, as for example: approx 70% vs. precise 95%
+				nApproxTotDelta += (uint32_t)(nTotalPct - (double)nApproxTotDelta);
+				nCopyPct += (nTotalPct - (double)nApproxTotDelta);				
+			}
+			cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, (uint32_t)nCopyPct);
+
+			char msg[256] = "";
+			sprintf(
+				msg, 
+				//"%.2f %s / %.2f %s (%.1f %%)(delta: %d %%)",
+				"%.2f %s / %.2f %s",
+				GetByteUnit(nTotalRead),
+				GetByteUnitStr(nTotalRead),
+				GetByteUnit(gamePKG->pkglst[gamePKG->nSelectedPKG].nSize),
+				GetByteUnitStr(gamePKG->pkglst[gamePKG->nSelectedPKG].nSize)	//,
+				//nTotalPct,
+				//nApproxTotDelta
+			);
+			cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, msg);
 		}
+
+		nCopyPct = (double)(((double)numr / (double)gamePKG->pkglst[gamePKG->nSelectedPKG].nSize) * 100.0f);
+		double nTotalPct = (double)((double)nTotalRead / (double)gamePKG->pkglst[gamePKG->nSelectedPKG].nSize) * 100.0f;
+
+		nTotDelta += nCopyPct;
+		nApproxTotDelta += (uint32_t)round(nCopyPct);
+
+		if((double)nApproxTotDelta < nTotalPct) 
+		{
+			// Compensate loss of float/double data, as for example: approx 70% vs. precise 95%
+			nApproxTotDelta += (uint32_t)(nTotalPct - (double)nApproxTotDelta);
+			nCopyPct += (nTotalPct - (double)nApproxTotDelta);
+		}
+		cellMsgDialogProgressBarInc(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, (uint32_t)nCopyPct);
+
+		char msg[256] = "";
+		sprintf(
+			msg, 
+			//"%.2f %s / %.2f %s (%.1f %%)(delta: %d %%)",
+			"%.2f %s / %.2f %s",
+			GetByteUnit(nTotalRead),
+			GetByteUnitStr(nTotalRead),
+			GetByteUnit(gamePKG->pkglst[gamePKG->nSelectedPKG].nSize),
+			GetByteUnitStr(gamePKG->pkglst[gamePKG->nSelectedPKG].nSize)	//,
+			//nTotalPct,
+			//nApproxTotDelta
+		);
+		cellMsgDialogProgressBarSetMsg(CELL_MSGDIALOG_PROGRESSBAR_INDEX_SINGLE, msg);
 
 		if(filer) fclose(filer);
 		if(filew) fclose(filew);
@@ -996,6 +1075,8 @@ void thread_FileCopy(uint64_t /*arg*/)
 		free(buffer);
 		buffer = NULL;
 	}
+
+	sys_timer_usleep(1000000); // wait 1 second
 
 	gamePKG->nStatus = STATUS_COPY_OK;
 	sys_ppu_thread_exit(0);

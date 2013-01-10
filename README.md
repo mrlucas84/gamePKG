@@ -66,7 +66,11 @@ Usage:
 Changelog:
 ----------------------------------------------
 
-1.1A (20130109)
+1.02 (20130110)
+
+- Implemented progress bar display while processing PKG(s) file(s).
+
+1.01A (20130109)
 
 - Re-wrote device and directory scanning code, now it is case-sensitive :)
 - The following directories are valid for PKG file storage:
@@ -84,7 +88,7 @@ Changelog:
 Note: You can have all those directories at same time, with different PKG files, 
 and they will be properly scanned, not even multiMAN have this implemented :p, LOL.
 
-1.1 (20130109)
+1.01 (20130109)
 
 - Implemented PKG list sorting by filename.
 - Added feature to remove previously queued PKG by pressing ([ ]) square.
@@ -95,7 +99,7 @@ and they will be properly scanned, not even multiMAN have this implemented :p, L
 - Re-wrote module to write the PDB & Icon files from scratch.
 - Other source code improvements.
 
-1.0 (20121220)
+1.00 (20121220)
 
 - Initial "Test" Release
 
